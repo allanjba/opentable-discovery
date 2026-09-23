@@ -11,6 +11,12 @@ One line per decision. Full reasoning lives in
 - Dev server on port 3000 (freed by stopping the `shadcn_glimmer` Puma server).
 - Scripts will be `.mts`, run natively by Node 24 — no build step for tooling.
 
+## Links
+
+- Repo: https://github.com/allanjba/opentable-discovery (public)
+- Live: https://opentable-discovery.vercel.app
+- Vercel project `opentable-discovery` imported from GitHub, so every push to `main` auto-deploys.
+
 ## Data
 
 _(nothing yet)_
