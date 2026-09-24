@@ -20,7 +20,6 @@ if (!appId || !searchKey) {
   );
 }
 
-export const ALGOLIA_APP_ID = appId;
 export const INDEX_NAME = "restaurants";
 
 export const searchClient = liteClient(appId, searchKey);
