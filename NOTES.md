@@ -6,7 +6,7 @@
 - [x] Static components to test project styles
 - [x] Create script to merge data files
 - [x] Create local seach for testing
-- [ ] Algolia account and index data
+- [x] Algolia account and index data
 - [ ] Algolia search component
 - [ ] Adjust data script to clean the data and reindex
 - [ ] Improve search experience
@@ -37,6 +37,15 @@
 ## Search
 
 - Naive substring search over the merged JSON
+
+## Algolia
+
+- `algoliasearch` v5 — flat client, `algoliasearch(appId, key)` then `client.saveObjects({...})`. No `initIndex()`; that was v4, which is what the starter template pinned.
+- Index name `restaurants`. `npm run data:index` pushes all 5,000, re-runnable — records match on objectID so a re-run replaces rather than duplicates.
+- `npm run search:compare` runs the same queries against naive and Algolia side by side. Re-run it after any settings change; that is the tuning evidence.
+- Env is read with Node 24's native `process.loadEnvFile()` — no dotenv dependency.
+- We send `objectID` as a number; Algolia coerces it to a string. Confirmed on read-back.
+- Indexed with **no settings at all** on purpose, so every attribute, facet and ranking rule added later is a visible change.
 
 ## Look and feel
 
