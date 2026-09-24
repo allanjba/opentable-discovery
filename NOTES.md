@@ -5,6 +5,7 @@
 - [x] Bootstrap and deploy to git and vercel
 - [x] Static components to test project styles
 - [x] Create script to merge data files
+- [x] Create local seach for testing
 - [ ] Algolia account and index data
 - [ ] Algolia search component
 - [ ] Adjust data script to clean the data and reindex
@@ -35,12 +36,10 @@
 
 ## Search
 
-_(nothing yet)_
+- Naive substring search over the merged JSON
 
 ## Look and feel
 
 - Kept their visual identity — palette, Open Sans, background tile — rather than restyling, so that when the demo sits next to their screenshot every visible difference is behaviour, not decoration.
-- Their `index.css` was not reused as code (float-based, 15 float rules to 1 flex). Mined for colour and type tokens only.
 - Tokens live in `globals.css` as Tailwind 4 `@theme` variables.
-- Static page uses six real records from `data/source/`, not invented ones, so the layout is tested against real field lengths and diacritics.
-- Left out their Rating star-picker and Payment Options facet — both are on the list to replace rather than reproduce.
+- Every `image_url` redirects to a generic placeholder, so cards show one repeated icon. Host allowlisted in `next.config.ts`; real imagery needs substituting later.
