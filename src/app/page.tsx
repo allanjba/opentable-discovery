@@ -1,9 +1,9 @@
-import { NaiveSearchApp } from "@/components/naive-search-app";
+import { AlgoliaSearchApp } from "@/components/algolia-search-app";
 
 export default function Home() {
   return (
     <main className="flex-1">
-      <NaiveSearchApp />
+      <AlgoliaSearchApp />
     </main>
   );
 }

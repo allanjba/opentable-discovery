@@ -7,7 +7,7 @@
 - [x] Create script to merge data files
 - [x] Create local seach for testing
 - [x] Algolia account and index data
-- [ ] Algolia search component
+- [x] Algolia search component
 - [ ] Adjust data script to clean the data and reindex
 - [ ] Improve search experience
 
@@ -45,7 +45,12 @@
 - `npm run search:compare` runs the same queries against naive and Algolia side by side. Re-run it after any settings change; that is the tuning evidence.
 - Env is read with Node 24's native `process.loadEnvFile()` — no dotenv dependency.
 - We send `objectID` as a number; Algolia coerces it to a string. Confirmed on read-back.
-- Indexed with **no settings at all** on purpose, so every attribute, facet and ranking rule added later is a visible change.
+- Indexed with **no settings at all** except `attributesForFaceting` (the sidebar cannot render without facet counts) and `maxValuesPerFacet: 200` (114 cuisines > the default 100 cap).
+- `npm run data:settings` is the source of truth for settings — change the script, not the dashboard.
+- `/` is Algolia, `/old` is the naive version, kept for side-by-side comparison.
+- Search is undebounced. Algolia's docs frame debouncing as something you turn ON for slow networks, not the default.
+- The sidebar needs **two** queries batched into one request — one for hits with the filter, one for facet counts without it. Otherwise selecting a cuisine zeroes every other cuisine and multi-select breaks (disjunctive faceting).
+- Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel
 
