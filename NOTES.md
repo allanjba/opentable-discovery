@@ -4,7 +4,7 @@
 
 - [x] Bootstrap and deploy to git and vercel
 - [x] Static components to test project styles
-- [ ] Create script to merge data files
+- [x] Create script to merge data files
 - [ ] Algolia account and index data
 - [ ] Algolia search component
 - [ ] Adjust data script to clean the data and reindex
@@ -25,6 +25,12 @@
 ## Data
 
 - Source files copied to `data/source/` untouched; no transformations yet.
+- `npm run data:build` merges them into `public/data/restaurants.json`. Run manually, output is committed — no build-time generation.
+- Output is a faithful superset: the source JSON record unchanged, plus 7 CSV fields. Verified across all 5,000 — zero drift.
+- `objectID` stays a number, as the source has it. If Algolia needs a string, that belongs in the indexer, not the merge.
+- Types are converted once, at the CSV boundary. CSV is typeless so numbers are parsed on read; fields that already had a type in the JSON are passed through untouched.
+- The join reports failures in both directions — JSON record with no CSV row, and CSV row nobody claimed. The second is the silent one.
+- Known: parser counts a phantom row from the file's trailing newline, so it reports 5001 rows and 1 orphan. Output is unaffected (5,000 records, no corruption); fix is `text.trim().split()`.
 - Two of the three restaurants shown in their mockup ("Anchor and Hope", "Bluestem Brasserie") are not in our dataset — the screenshot was built from a different cut.
 
 ## Search
