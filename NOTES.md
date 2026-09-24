@@ -36,7 +36,8 @@
 
 ## Search
 
-- Naive substring search over the merged JSON
+- Naive substring search over the merged JSON on /old
+- Algolia implementation on root page
 
 ## Algolia
 
