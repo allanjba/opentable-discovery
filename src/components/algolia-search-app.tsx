@@ -46,7 +46,7 @@ export function AlgoliaSearchApp() {
     const facetFilters =
       cuisines.length > 0
         ? // A nested array is OR within the facet: Italian OR Japanese.
-          [cuisines.map((value) => `food_type:${value}`)]
+          [cuisines.map((value) => `cuisines:${value}`)]
         : undefined;
 
     searchClient
@@ -62,7 +62,7 @@ export function AlgoliaSearchApp() {
             indexName: INDEX_NAME,
             query,
             hitsPerPage: 0,
-            facets: ["food_type"],
+            facets: ["cuisines"],
           },
         ],
       })
@@ -70,7 +70,7 @@ export function AlgoliaSearchApp() {
         if (cancelled) return;
 
         const [hitsResult, facetsResult] = results;
-        const counts: Record<string, number> = facetsResult.facets?.food_type ?? {};
+        const counts: Record<string, number> = facetsResult.facets?.cuisines ?? {};
         const ordered: Facet[] = Object.entries(counts)
           .map(([value, count]) => ({ value, count }))
           .sort((a, b) => b.count - a.count);

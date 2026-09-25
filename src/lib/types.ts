@@ -31,7 +31,7 @@ type FromInfo = {
   /** Heavily skewed: median 336, max 12,669. */
   reviews_count: number;
   neighborhood: string;
-  /** Clean and formatted, unlike `phone`. */
+  /** Better formatted than `phone`, but extensions are truncated to " e". */
   phone_number: string;
   /** "$30 and under" | "$31 to $50" | "$50 and over" */
   price_range: string;
@@ -40,6 +40,38 @@ type FromInfo = {
 };
 
 /**
- * A merged record: the source JSON record, unchanged, plus the CSV fields.
+ * The faithful join of the two source files, before any cleanup.
+ * `objectID` stays the integer the source has it as.
  */
-export type Restaurant = { objectID: number } & FromList & FromInfo;
+export type MergedRestaurant = { objectID: number } & FromList & FromInfo;
+
+/**
+ * A phone number, stored canonically as digits. Formatting is a display
+ * concern. Every number in this dataset is a bare 10-digit NANP number — there
+ * are no country codes, so none is stored.
+ */
+export type Phone = {
+  /** 10 digits, no punctuation. */
+  number: string;
+  /** Digits only, absent when the source had no extension. */
+  ext?: string;
+};
+
+/**
+ * What actually gets indexed.
+ *
+ * The two source phone fields disagree on 95 records and neither is reliably
+ * better, so both are merged into `phones` and the originals are dropped —
+ * they were searchable noise besides.
+ */
+export type Restaurant = Omit<MergedRestaurant, "phone" | "phone_number"> & {
+  phones: Phone[];
+  /**
+   * `food_type` split on its separators. Eight source values are compound
+   * ("Mexican / Southwestern", "Global, International"), which made them their
+   * own orphan facet value — a restaurant tagged "Mexican / Southwestern" was
+   * findable under neither Mexican nor Southwestern. Facet on this, not on
+   * `food_type`.
+   */
+  cuisines: string[];
+};

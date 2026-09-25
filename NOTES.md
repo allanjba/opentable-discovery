@@ -32,6 +32,12 @@
 - Types are converted once, at the CSV boundary. CSV is typeless so numbers are parsed on read; fields that already had a type in the JSON are passed through untouched.
 - The join reports failures in both directions — JSON record with no CSV row, and CSV row nobody claimed. The second is the silent one.
 - Known: parser counts a phantom row from the file's trailing newline, so it reports 5001 rows and 1 orphan. Output is unaffected (5,000 records, no corruption); fix is `text.trim().split()`.
+- Cleanup runs as the last step of `data:build`, from `scripts/clean.mts`. The join stays faithful; every change to the data is in that one file.
+- `phone` and `phone_number` are merged into `phones: [{ number, ext? }]` and the originals dropped. 4,905 records have one number, 95 have two.
+- No country code stored — all 10,000 values are bare 10-digit NANP numbers.
+- `food_type` is split into `cuisines: string[]` on `/` and `,`; the raw field is kept for display. Facet on `cuisines`.
+- That split made Southwestern (36), Small Plates (42), Global (43), Latin (13) and Eclectic (30) facetable — they had no facet presence at all before.
+- A cuisine hierarchy was tried and rejected: not derivable from the strings without judgement, and 116 values is a display problem, not a data one.
 - Two of the three restaurants shown in their mockup ("Anchor and Hope", "Bluestem Brasserie") are not in our dataset — the screenshot was built from a different cut.
 
 ## Search
@@ -58,3 +64,18 @@
 - Kept their visual identity — palette, Open Sans, background tile — rather than restyling, so that when the demo sits next to their screenshot every visible difference is behaviour, not decoration.
 - Tokens live in `globals.css` as Tailwind 4 `@theme` variables.
 - Every `image_url` redirects to a generic placeholder, so cards show one repeated icon. Host allowlisted in `next.config.ts`; real imagery needs substituting later.
+
+## possible wins with algolia
+
+- Order seach attributes
+- Custom ranking by popularity_score
+- Remove unused fields from payload.
+- Synonyms by AE's "alternate spellings" note.
+- Geo and ranking tension
+- Investigate replica for sorting
+- Always show a result: lastWords feature
+- Create a rule for demo (detect a cuisine word in the query and apply it as a filter)
+- Server facet ordering
+- Query Suggestions
+- "Click & conversion events via Insights" investigate
+  Personalization or dynamic reranking need click and conversion data and this index has none

@@ -22,14 +22,14 @@ process.loadEnvFile(resolve(root, ".env"));
 const INDEX_NAME = "restaurants";
 
 const SETTINGS: IndexSettings = {
-  // Required for the cuisine sidebar: without this the response carries no
-  // facet counts at all. searchable() also allows searching within the facet
-  // values, which we will want — see maxValuesPerFacet below.
-  attributesForFaceting: ["searchable(food_type)"],
+  // Facet on `cuisines`, not `food_type`. The raw field packs several concepts
+  // into one string on eight values, so faceting on it hides Southwestern,
+  // Small Plates, Global and Latin entirely. searchable() also allows searching
+  // within the facet values, which the sidebar will need at 116 of them.
+  attributesForFaceting: ["searchable(cuisines)"],
 
-  // food_type has 114 distinct values and the default cap is 100, so 14 would
-  // be silently missing from facet responses. Raised until the taxonomy is
-  // normalised down to something sane.
+  // 116 distinct cuisine values against a default cap of 100, so 16 would be
+  // silently missing from facet responses.
   maxValuesPerFacet: 200,
 };
 

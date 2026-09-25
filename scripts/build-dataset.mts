@@ -12,7 +12,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Restaurant } from "../src/lib/types";
+import type { MergedRestaurant } from "../src/lib/types";
+import { clean } from "./clean.mts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LIST_PATH = resolve(root, "data/source/restaurants_list.json");
@@ -40,7 +41,7 @@ function main() {
   );
   const seenInRestaurantInfo = new Set<number>();
 
-  const merged: Restaurant[] = [];
+  const merged: MergedRestaurant[] = [];
   const missingInfo: number[] = [];
 
   for (const item of restaurantList) {
@@ -69,7 +70,10 @@ function main() {
     (id) => !seenInRestaurantInfo.has(id),
   );
 
-  const json = JSON.stringify(merged);
+  // Cleanup runs last, on the faithful join, so the transforms stay visible
+  // and reversible rather than being baked into the merge itself.
+  const cleaned = clean(merged);
+  const json = JSON.stringify(cleaned);
 
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, json, "utf8");
@@ -83,6 +87,7 @@ function main() {
   console.log(`    restaurants_info.csv    ${restaurantInfo.length} rows`);
   console.log(`    ${"-".repeat(44)}`);
   console.log(`    merged                  ${merged.length} records`);
+  console.log(`    two phone numbers       ${cleaned.filter((r) => r.phones.length > 1).length}`);
   console.log(`    list without a csv row  ${missingInfo.length}`);
   console.log(`    csv row without a list  ${orphanRestaurantInfo.length}`);
   console.log(`\n    → ${relative(root, OUT_PATH)}  (${sizeMb} MB)\n`);
