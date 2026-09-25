@@ -13,14 +13,13 @@
 
 ## Next — settings, in order
 
-1. Move `exact` ahead of `attribute` in `ranking` — the candidate fix for the name-ordering trade-off below. Untested.
-2. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
-3. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
-4. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
-5. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
-6. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
-7. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
-8. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
+1. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
+2. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
+3. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
+4. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
+5. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
+6. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
+7. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
 
 Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ranking, Recommend — all need behavioural data this index doesn't have. Instrument the events instead and say why.
 
@@ -104,6 +103,10 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - Measured before/after. Browsing 5,000 with no ranking: **The Edgewater Grill, 3.9★**, led on insertion order. With `desc(stars_count)`: 5.0★/3-review places in the top 5. With `popularity_score`: Russell's (4.9★/2,512), Quince (4.9★/1,693), Mama's Fish House (4.8★/12,669) at #6. Ellen's Cafe (5.0★, **1 review**) went from #1 to #2,391.
 - Float precision on `customRanking` is preserved — 613 adjacent pairs in the top 1,000 differ by <0.001 with **zero** inversions, so no scaled integer is needed. Verified, not assumed.
 - `popularity_score` is deliberately not in `attributesToRetrieve` — it's a ranking input, not a display value. Requested per-query in the verification script, which shows the index-level list is a default, not a cage.
+- `ranking` is Algolia's default with **`exact` moved ahead of `attribute`**. A/B'd across 39 queries: exactly 2 changed (`Union` #29→#3, `Rye` #5→#4), 37 identical, no regressions.
+- It promotes **exact over prefix**, not name over neighbourhood. It cannot break a tie *between* exact matches — `exact` counts exactly-matched words and doesn't know which attribute they came from. `getRankingInfo` shows the restaurant named Lafayette and all 22 in Lafayette neighbourhood/city all report `nbExactWords: 1`, so the tie still falls to `attribute`. **`Lafayette` is still #14 of 19.**
+- The real fix for that is a UI answer, not a ranking one: a federated query showing "restaurants named X" and "restaurants in X" as separate groups rather than one ordering. Parked.
+- A `ranking` change took **~125 seconds** to reach live search, and hit counts were briefly unstable while it settled. Measured, not guessed — three identical runs afterwards showed 0 of 39 queries drifting.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

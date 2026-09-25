@@ -28,7 +28,9 @@ function parsePhone(value: string): Phone | null {
   if (digits.length < 10) return null;
 
   const ext = digits.slice(10);
-  return ext ? { number: digits.slice(0, 10), ext } : { number: digits.slice(0, 10) };
+  return ext
+    ? { number: digits.slice(0, 10), ext }
+    : { number: digits.slice(0, 10) };
 }
 
 /**
@@ -59,25 +61,6 @@ export function mergePhones(record: MergedRestaurant): Phone[] {
   }
 
   return phones;
-}
-
-/** Applies every cleanup transform. */
-export function clean(records: MergedRestaurant[]): Restaurant[] {
-  // Computed once over the whole corpus, not per record.
-  const priorRating = reviewWeightedMeanRating(records);
-
-  return records.map((record) => {
-    const { phone, phone_number, ...rest } = record;
-    void phone;
-    void phone_number;
-
-    return {
-      ...rest,
-      phones: mergePhones(record),
-      cuisines: splitCuisines(record.food_type),
-      popularity_score: popularityScore(record, priorRating),
-    };
-  });
 }
 
 /**
@@ -179,4 +162,23 @@ function popularityScore(
 
   const factor = 10 ** SCORE_DECIMALS;
   return Math.round(score * factor) / factor;
+}
+
+/** Applies every cleanup transform. */
+export function clean(records: MergedRestaurant[]): Restaurant[] {
+  // Computed once over the whole corpus, not per record.
+  const priorRating = reviewWeightedMeanRating(records);
+
+  return records.map((record) => {
+    const { phone, phone_number, ...rest } = record;
+    void phone;
+    void phone_number;
+
+    return {
+      ...rest,
+      phones: mergePhones(record),
+      cuisines: splitCuisines(record.food_type),
+      popularity_score: popularityScore(record, priorRating),
+    };
+  });
 }

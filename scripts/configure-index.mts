@@ -97,6 +97,47 @@ const SETTINGS: IndexSettings = {
   customRanking: ["desc(popularity_score)", "desc(reviews_count)"],
 
   /**
+   * Algolia's default order with `exact` moved one place ahead of `attribute`.
+   * The default is typo, geo, words, filters, proximity, attribute, exact,
+   * custom.
+   *
+   * Because `name` sits last in searchableAttributes, a restaurant whose name
+   * is a single word that also names a place loses to the place. Promoting
+   * `exact` lets a whole-word match outrank a prefix match before attribute
+   * order is consulted:
+   *
+   *   "Union"   the restaurant named Union    #29 of 42  ->  #3
+   *   "Rye"     the restaurant named Rye       #5 of 7   ->  #4
+   *
+   * A/B'd across 39 queries covering categories, known-item, location, typo and
+   * prefix. Exactly those two changed; the other 37 were identical, so the
+   * change is narrow and carries no measured regression.
+   *
+   * What it does NOT fix, and this is the part worth remembering: it cannot
+   * break a tie *between* exact matches. `exact` counts exactly-matched words;
+   * it does not know which attribute they matched in. Checked with
+   * getRankingInfo — for "Lafayette", the restaurant named Lafayette and all 22
+   * restaurants in the Lafayette neighbourhood or city report nbExactWords: 1.
+   * They tie, the tie falls to `attribute`, and neighborhood outranks name
+   * exactly as before. Lafayette is still #14 of 19.
+   *
+   * So this promotes exact over prefix, not name over neighbourhood. The real
+   * answer to that one is a UI answer rather than a ranking answer — a
+   * federated query presenting "restaurants named X" and "restaurants in X" as
+   * separate groups instead of making them compete in one ordering.
+   */
+  ranking: [
+    "typo",
+    "geo",
+    "words",
+    "filters",
+    "proximity",
+    "exact",
+    "attribute",
+    "custom",
+  ],
+
+  /**
    * Only what the result card renders. objectID is always returned.
    *
    * Unset, every hit carries all 23 attributes — four URLs, the geo point, the
@@ -135,8 +176,14 @@ const SETTINGS: IndexSettings = {
     // price_range disagree can never show a contradiction: filter and display
     // come from one source.
     "price",
+    // The three location attributes are searchable() because the autocomplete
+    // looks up matching values with searchForFacetValues, which only works on a
+    // searchable() facet. area carries the metro hierarchy ("Portland /
+    // Oregon"), so the three together read the way OpenTable's own dropdown
+    // groups locations.
     "searchable(area)",
     "searchable(neighborhood)",
+    "searchable(city)",
   ],
 
   // 116 distinct cuisine values against a default cap of 100, so 16 would be
