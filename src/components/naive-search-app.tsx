@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Restaurant } from "@/lib/types";
+import { Stars } from "@/components/stars";
 import { cuisineCounts, naiveSearch } from "@/lib/naive-search";
 import Image from "next/image";
 
@@ -181,10 +182,11 @@ export function NaiveSearchApp() {
                         <h3 className="truncate text-lg font-semibold text-ink">
                           {hit.name}
                         </h3>
-                        <p className="text-sm">
+                        <p className="flex items-center gap-1.5 text-sm">
                           <span className="font-semibold text-accent">
                             {hit.stars_count.toFixed(1)}
-                          </span>{" "}
+                          </span>
+                          <Stars rating={hit.stars_count} />
                           <span className="text-grey-500">
                             ({hit.reviews_count.toLocaleString()} reviews)
                           </span>

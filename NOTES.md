@@ -8,7 +8,7 @@
 - [x] Create local seach for testing
 - [x] Algolia account and index data
 - [x] Algolia search component
-- [ ] Adjust data script to clean the data and reindex
+- [x] Adjust data script to clean the data and reindex
 - [ ] Improve search experience
 
 ## Setup
@@ -57,6 +57,13 @@
 - `/` is Algolia, `/old` is the naive version, kept for side-by-side comparison.
 - Search is undebounced. Algolia's docs frame debouncing as something you turn ON for slow networks, not the default.
 - The sidebar needs **two** queries batched into one request — one for hits with the filter, one for facet counts without it. Otherwise selecting a cuisine zeroes every other cuisine and multi-select breaks (disjunctive faceting).
+- `searchableAttributes` is ordered and restricted: name, cuisines+food_type, neighborhood+city, area, dining_style. Order drives the Attribute ranking criterion; commas mean equal weight.
+- That took `restimages`, `single.aspx`, `opentable`, postal codes and phone digits from thousands of hits to 0, with every real query holding.
+- `attributesToRetrieve` cut hits from 23 attributes to 9 (~34% smaller). An attribute stays searchable and facetable whether or not it is returned — three independent lists.
+- Facets declared: cuisines, dining_style, price, area, neighborhood. The sidebar renders the first three.
+- Multi-facet disjunctive faceting: 1 request for hits + 1 per facet with that facet's own filter removed, all batched into one round trip.
+- Price facets and displays from the `price` integer, rendered $$ / $$$ / $$$$ — the same notation OpenTable's own filter uses. Filter and display from one field, so the 220 price conflicts can never show on screen.
+- Star ratings restored on the result card — they were in their mockup and we had dropped them by accident.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

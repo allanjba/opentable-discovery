@@ -4,51 +4,84 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Restaurant } from "@/lib/types";
+import { Stars } from "@/components/stars";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
 
-const FACET_LIMIT = 7;
+/**
+ * The facet groups shown in the sidebar, in order.
+ *
+ * `limit` is how many values to show before the long tail is cut. Cuisine has
+ * 116 values so it needs a hard cut; dining style has four and price three, so
+ * they are shown whole.
+ */
+type FacetConfig = {
+  attribute: string;
+  label: string;
+  /** How many values to show before the long tail is cut. */
+  limit: number;
+  /** Sort by the value itself rather than by count — for ordered tiers. */
+  sortByValue?: boolean;
+  /** Render the raw facet value for display. */
+  format?: (value: string) => string;
+};
+
+const FACETS: FacetConfig[] = [
+  { attribute: "cuisines", label: "Cuisine/Food Type", limit: 7 },
+  { attribute: "dining_style", label: "Dining Style", limit: 10 },
+  {
+    attribute: "price",
+    label: "Price",
+    limit: 10,
+    // Price tiers are 2, 3 and 4 — sort by the tier, not by popularity.
+    sortByValue: true,
+    format: priceSymbols,
+  },
+];
+
+/** 2 -> "$$", 3 -> "$$$", 4 -> "$$$$" — the notation OpenTable's own filter uses. */
+function priceSymbols(tier: number | string): string {
+  const n = Number(tier);
+  return Number.isFinite(n) ? "$".repeat(n) : String(tier);
+}
+
 const BROWSE_LIMIT = 3;
 const PAGE_SIZE = 10;
 
-type Facet = { value: string; count: number };
+type FacetValue = { value: string; count: number };
+type Refinements = Record<string, string[]>;
 
 type SearchState = {
   hits: Restaurant[];
   total: number;
-  facets: Facet[];
+  facets: Record<string, FacetValue[]>;
   elapsedMs: number;
 };
+
+/** Algolia's facetFilters shape: nested array = OR within a facet, outer = AND. */
+function toFacetFilters(refinements: Refinements, skip?: string): string[][] {
+  return Object.entries(refinements)
+    .filter(([attribute, values]) => attribute !== skip && values.length > 0)
+    .map(([attribute, values]) => values.map((v) => `${attribute}:${v}`));
+}
 
 export function AlgoliaSearchApp() {
   const [state, setState] = useState<SearchState | null>(null);
   const [query, setQuery] = useState("");
-  const [cuisines, setCuisines] = useState<string[]>([]);
+  const [refinements, setRefinements] = useState<Refinements>({});
   const [limit, setLimit] = useState(BROWSE_LIMIT);
 
-  // No debouncing. Algolia's own guidance is that search-as-you-type is the
-  // intended experience and debouncing is the thing you turn ON for slow
-  // networks or QPS limits, not the default.
+  // No debouncing — Algolia's guidance is that search-as-you-type is the
+  // intended experience and debouncing is what you turn on for slow networks.
   useEffect(() => {
     let cancelled = false;
     const startedAt = performance.now();
 
-    // Two requests, batched into one network round trip.
+    // Disjunctive faceting. One request for the hits with every refinement
+    // applied, then one request per facet with *that facet's own* refinement
+    // removed. Without this, selecting "Italian" drops every other cuisine to
+    // zero and a second value can never be chosen.
     //
-    // This is disjunctive faceting. A single query would apply facetFilters to
-    // both the hits and the facet counts, so selecting "Italian" would drop
-    // every other cuisine to zero and you could never pick a second one. The
-    // counts for a facet have to be computed with that facet's own filter
-    // removed, so they answer "what would I get if I also picked this?" rather
-    // than "what matches right now?".
-    //
-    //   [0] the hits — query + the cuisine filter
-    //   [1] the facet counts — same query, WITHOUT the cuisine filter
-    const facetFilters =
-      cuisines.length > 0
-        ? // A nested array is OR within the facet: Italian OR Japanese.
-          [cuisines.map((value) => `cuisines:${value}`)]
-        : undefined;
-
+    // All of them go out in a single network round trip.
     searchClient
       .searchForHits<Restaurant>({
         requests: [
@@ -56,40 +89,50 @@ export function AlgoliaSearchApp() {
             indexName: INDEX_NAME,
             query,
             hitsPerPage: limit,
-            facetFilters,
+            facetFilters: toFacetFilters(refinements),
           },
-          {
+          ...FACETS.map(({ attribute }) => ({
             indexName: INDEX_NAME,
             query,
             hitsPerPage: 0,
-            facets: ["cuisines"],
-          },
+            facets: [attribute],
+            facetFilters: toFacetFilters(refinements, attribute),
+          })),
         ],
       })
       .then(({ results }) => {
         if (cancelled) return;
 
-        const [hitsResult, facetsResult] = results;
-        const counts: Record<string, number> = facetsResult.facets?.cuisines ?? {};
-        const ordered: Facet[] = Object.entries(counts)
-          .map(([value, count]) => ({ value, count }))
-          .sort((a, b) => b.count - a.count);
+        const [hitsResult, ...facetResults] = results;
+        const facets: Record<string, FacetValue[]> = {};
 
-        const top = ordered.slice(0, FACET_LIMIT);
-        // Same rule as the old implementation: a selected cuisine must stay
-        // visible even when it falls outside the top N, or the user cannot see
-        // or remove the filter that is hiding their results.
-        const pinned = cuisines
-          .filter((value) => !top.some((facet) => facet.value === value))
-          .map((value) => ({
-            value,
-            count: ordered.find((facet) => facet.value === value)?.count ?? 0,
-          }));
+        FACETS.forEach(({ attribute, limit: facetLimit }, index) => {
+          const counts = facetResults[index].facets?.[attribute] ?? {};
+          const ordered = Object.entries(counts)
+            .map(([value, count]) => ({ value, count }))
+            .sort((a, b) => b.count - a.count);
+
+          if (FACETS[index].sortByValue) {
+            ordered.sort((a, b) => Number(a.value) - Number(b.value));
+          }
+
+          const top = ordered.slice(0, facetLimit);
+          // A selected value must stay visible even when it falls outside the
+          // top N, or the filter narrowing the results becomes invisible.
+          const pinned = (refinements[attribute] ?? [])
+            .filter((value) => !top.some((f) => f.value === value))
+            .map((value) => ({
+              value,
+              count: ordered.find((f) => f.value === value)?.count ?? 0,
+            }));
+
+          facets[attribute] = [...top, ...pinned];
+        });
 
         setState({
           hits: hitsResult.hits,
           total: hitsResult.nbHits ?? 0,
-          facets: [...top, ...pinned],
+          facets,
           elapsedMs: performance.now() - startedAt,
         });
       });
@@ -97,29 +140,35 @@ export function AlgoliaSearchApp() {
     return () => {
       cancelled = true;
     };
-  }, [query, cuisines, limit]);
+  }, [query, refinements, limit]);
 
-  function resetLimit(nextQuery: string, nextCuisines: string[]) {
-    const browsing = nextQuery.trim().length === 0 && nextCuisines.length === 0;
+  function resetLimit(nextQuery: string, nextRefinements: Refinements) {
+    const browsing =
+      nextQuery.trim().length === 0 &&
+      Object.values(nextRefinements).every((values) => values.length === 0);
     setLimit(browsing ? BROWSE_LIMIT : PAGE_SIZE);
   }
 
   function updateQuery(value: string) {
     setQuery(value);
-    resetLimit(value, cuisines);
+    resetLimit(value, refinements);
   }
 
-  function toggleCuisine(value: string) {
-    const next = cuisines.includes(value)
-      ? cuisines.filter((item) => item !== value)
-      : [...cuisines, value];
-    setCuisines(next);
+  function toggleRefinement(attribute: string, value: string) {
+    const current = refinements[attribute] ?? [];
+    const next = {
+      ...refinements,
+      [attribute]: current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    };
+    setRefinements(next);
     resetLimit(query, next);
   }
 
   function clearAll() {
     setQuery("");
-    setCuisines([]);
+    setRefinements({});
     setLimit(BROWSE_LIMIT);
   }
 
@@ -138,28 +187,40 @@ export function AlgoliaSearchApp() {
 
       <div className="flex flex-col bg-surface shadow-md sm:flex-row">
         <aside className="w-full border-grey-200 p-6 sm:w-64 sm:shrink-0 sm:border-r">
-          <h2 className="mb-4 font-semibold text-ink">Cuisine/Food Type</h2>
-          <ul>
-            {(state?.facets ?? []).map((facet) => {
-              const active = cuisines.includes(facet.value);
-              return (
-                <li key={facet.value}>
-                  <button
-                    type="button"
-                    onClick={() => toggleCuisine(facet.value)}
-                    className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-[15px] ${
-                      active ? "bg-brand text-white" : "text-ink hover:bg-grey-100"
-                    }`}
-                  >
-                    <span>{facet.value}</span>
-                    <span className={active ? "text-white" : "text-grey-400"}>
-                      {facet.count}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          {FACETS.map(({ attribute, label, format }) => (
+            <div key={attribute} className="mb-7 last:mb-0">
+              <h2 className="mb-3 font-semibold text-ink">{label}</h2>
+              <ul>
+                {(state?.facets[attribute] ?? []).map((facet) => {
+                  const active = (refinements[attribute] ?? []).includes(
+                    facet.value,
+                  );
+                  return (
+                    <li key={facet.value}>
+                      <button
+                        type="button"
+                        onClick={() => toggleRefinement(attribute, facet.value)}
+                        className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-[15px] ${
+                          active
+                            ? "bg-brand text-white"
+                            : "text-ink hover:bg-grey-100"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {format ? format(facet.value) : facet.value}
+                        </span>
+                        <span
+                          className={`ml-2 shrink-0 ${active ? "text-white" : "text-grey-400"}`}
+                        >
+                          {facet.count}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </aside>
 
         <section className="min-w-0 flex-1 p-6">
@@ -213,16 +274,18 @@ export function AlgoliaSearchApp() {
                         <h3 className="truncate text-lg font-semibold text-ink">
                           {hit.name}
                         </h3>
-                        <p className="text-sm">
+                        <p className="flex items-center gap-1.5 text-sm">
                           <span className="font-semibold text-accent">
                             {hit.stars_count.toFixed(1)}
-                          </span>{" "}
+                          </span>
+                          <Stars rating={hit.stars_count} />
                           <span className="text-grey-500">
                             ({hit.reviews_count.toLocaleString()} reviews)
                           </span>
                         </p>
                         <p className="truncate text-sm text-grey-500">
-                          {hit.food_type} | {hit.neighborhood} | {hit.price_range}
+                          {hit.food_type} | {hit.neighborhood} |{" "}
+                          {priceSymbols(hit.price)}
                         </p>
                       </div>
                     </li>
