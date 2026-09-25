@@ -13,7 +13,7 @@
 
 ## Next — settings, in order
 
-1. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
+1. `minWordSizefor1Typo` — now the clear next step. Typo tolerance on short words is why 338 of 1,385 suggestions promise a count the search doesn't deliver: `Acme` says 3 / returns **1,605**, `Hilo` 1 / 252, `Portlando` 1 / 296, `Coronado` 13 / 374. All 4–6 letter words.
 2. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
 3. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
 4. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
@@ -31,7 +31,7 @@ Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ra
 - Booking link on card — needs `reserve_url` back in `attributesToRetrieve`
 - No-results recovery — `removeWordsIfNoResults`
 - "Near me" — `aroundLatLng`
-- Autocomplete — Query Suggestions index
+- ~~Autocomplete~~ — done, InstantSearch `<Autocomplete>` over three indices. A Query Suggestions index would add a "popular searches" section, but it's built from analytics we don't have.
 
 Pure UI, no setting: active filter chips + clear-all · empty-state discovery surface · replace "in 0.002 seconds" with something a diner cares about · responsive/mobile.
 
@@ -123,6 +123,13 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - **Data-quality find:** city `"Portlando"` — one restaurant (Cerulean, Pearl District, zip 97209, state OR). Invisible in a 5,000-row list, obvious the moment you aggregate the field. Kept, not silently corrected, consistent with the phone and price conflicts. A suggestions index is a free data-quality audit.
 - `salt lak` returns nothing and that is correct — **there is no Utah in this dataset** (35 states, no UT). Checked rather than chased.
 - Gotcha: `paginationLimitedTo` defaults to **1,000**, so paging through an index silently stops there. Use `browseObjects` to read everything — it truncated a verification before I noticed.
+- **Grouped autocomplete** — `<Autocomplete>` over three indices: Restaurants (main index, `restrictSearchableAttributes: ["name"]`), Locations, Food Type. Empty sections hide themselves. Keyboard nav, ARIA combobox and a mobile full-screen mode all come with the widget.
+- It dissolves the `Lafayette` problem instead of tuning around it: "restaurants named X" and "places called X" are separate sections, so the user disambiguates at selection and no ranking has to choose.
+- Selecting a suggestion sets the query and runs an ordinary search — **no filter**. Filters stay in the sidebar. Works because every suggestion is text the index already searches well.
+- Four gotchas, all found by testing rather than reading: (1) `ItemComponent` must wire `onClick={onSelect}` itself — without it rows hover and do nothing; (2) supplying the top-level `onSelect` **replaces** the widget's handler, so you must call `setQuery` yourself or selection silently no-ops; (3) that prop's type is a union with the DOM `onSelect` from `ComponentProps<'div'>`, so it needs narrowing; (4) the panel closes by going `aria-hidden`, and `instantsearch.css` does the actual hiding — styling with Tailwind instead means driving `hidden` off `aria-hidden:hidden` yourself.
+- **Counts are measured, not derived.** Each label is queried against the restaurants index at build time (1,385 labels, batches of 50, ~28 requests). A locally derived count lies: `Sushi` has 67 in `cuisines` but the search returns 106, because **39 restaurants named "Sushi …" are filed under food_type Japanese**. Same shape for Steakhouse (328 vs 421) and French (167 vs 248) — the names know more than the cuisine field.
+- Counted with `typoTolerance: false`, because choosing a suggestion is choosing a literal string. It also keeps counts sane: typo-tolerant, `Acme` measures 1,605 against a real 3 and would outrank New York / Tri-State Area. Strict matches the source field for 1,012 of 1,275 labels vs 814.
+- Promise vs delivery now: **1,047 of 1,385 exact (75.6%)**, and 239 of the remaining 338 are within 5. The big gaps are all typo tolerance — see roadmap item 1.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

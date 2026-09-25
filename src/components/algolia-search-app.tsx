@@ -5,7 +5,6 @@ import {
   Configure,
   InfiniteHits,
   RefinementList,
-  SearchBox,
   useInstantSearch,
   useStats,
 } from "react-instantsearch";
@@ -13,6 +12,7 @@ import { InstantSearchNext } from "react-instantsearch-nextjs";
 import type { RefinementListProps } from "react-instantsearch";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
 import { RestaurantHit, priceSymbols } from "@/components/restaurant-hit";
+import { SearchAutocomplete } from "@/components/autocomplete";
 
 /**
  * The search experience, built on React InstantSearch.
@@ -44,19 +44,8 @@ export function AlgoliaSearchApp() {
       <HitsPerPage />
 
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
-        <div className="bg-brand-dark p-6 shadow-md">
-          <SearchBox
-            placeholder="Search for Restaurants by Name, Cuisine, Location"
-            classNames={{
-              form: "relative",
-              input:
-                "w-full bg-surface px-5 py-3 text-lg text-ink outline-none placeholder:text-grey-400 focus:ring-2 focus:ring-brand",
-              submit: "hidden",
-              reset:
-                "absolute right-4 top-1/2 -translate-y-1/2 text-grey-400 hover:text-ink",
-              loadingIndicator: "hidden",
-            }}
-          />
+        <div className="relative z-50 bg-brand-dark p-6 shadow-md">
+          <SearchAutocomplete />
         </div>
 
         <div className="flex flex-col bg-surface shadow-md sm:flex-row">

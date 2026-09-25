@@ -32,6 +32,7 @@ const DATA_PATH = resolve(root, "public/data/restaurants.json");
 
 process.loadEnvFile(resolve(root, ".env"));
 
+const RESTAURANTS_INDEX = "restaurants";
 const LOCATIONS_INDEX = "locations";
 const CUISINES_INDEX = "cuisines";
 
@@ -75,14 +76,57 @@ function requireEnv(name: string): string {
 }
 
 /**
- * Builds the location rows.
+ * Counts how many restaurants each label actually returns.
  *
- * The count is the number of restaurants matching the label in ANY of the three
- * fields, not the count for the one field it was filed under. That matters
- * because selecting a suggestion runs a plain text search, and Algolia searches
- * all three — so a per-field count would under-report what the user is about to
- * get. "San Diego" is 285 as an area and 162 as a city; the union is what they
- * will actually see.
+ * Not derived from the source fields, but measured by running the search the
+ * user is about to run. Counting locally is wrong in a way that is easy to miss:
+ * a text search for "Sushi" returns 106 restaurants while only 67 carry Sushi
+ * in `cuisines`, because 39 more are NAMED "Sushi something" and filed under
+ * Japanese. Any locally derived number promises something the search does not
+ * deliver.
+ *
+ * Queried in batches with hitsPerPage 0, so no hits come back — only counts.
+ * 1,385 labels in batches of 50 is 28 requests, a couple of seconds.
+ * This makes the script depend on the restaurants index being indexed and
+ * configured first, which is the natural order anyway:
+ * data:build → data:index → data:settings → data:suggest.
+ */
+async function countByLabel(
+  client: ReturnType<typeof algoliasearch>,
+  labels: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const BATCH = 50;
+
+  for (let i = 0; i < labels.length; i += BATCH) {
+    const chunk = labels.slice(i, i + BATCH);
+    const { results } = await client.search({
+      requests: chunk.map((query) => ({
+        indexName: RESTAURANTS_INDEX,
+        query,
+        hitsPerPage: 0,
+        // Counted without typo tolerance, because choosing a suggestion is
+        // choosing a literal string — the user is not mistyping it.
+        //
+        // It also keeps the number sane. Typo-tolerant counts are wild on short
+        // labels: "Acme" measures 1,605 against a real 3, "Hilo" 252 against 1,
+        // "Portlando" 296 against 1. Ranking on those would put Acme above New
+        // York / Tri-State Area. Strict counting matches the source field
+        // exactly for 1,012 of 1,275 labels, against 814 typo-tolerant.
+        typoTolerance: false,
+      })),
+    });
+
+    results.forEach((result, index) => {
+      counts.set(chunk[index], "nbHits" in result ? (result.nbHits ?? 0) : 0);
+    });
+  }
+
+  return counts;
+}
+
+/**
+ * Builds the location rows.
  */
 function buildLocations(restaurants: Restaurant[]): LocationSuggestion[] {
   const kindFor = new Map<string, LocationKind>();
@@ -102,23 +146,13 @@ function buildLocations(restaurants: Restaurant[]): LocationSuggestion[] {
     }
   }
 
-  const counts = new Map<string, number>();
-  for (const restaurant of restaurants) {
-    // A restaurant counts once per distinct label, even when two of its fields
-    // carry the same one.
-    const seen = new Set(
-      KINDS.map((kind) => String(restaurant[FIELD_FOR_KIND[kind]] ?? "").trim().toLowerCase()),
-    );
-    for (const key of seen) {
-      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-  }
-
+  // restaurant_count is filled in by countByLabel, which measures rather than
+  // derives it.
   return [...kindFor].map(([key, kind]) => ({
     objectID: key,
     label: labelFor.get(key)!,
     kind,
-    restaurant_count: counts.get(key) ?? 0,
+    restaurant_count: 0,
   }));
 }
 
@@ -134,10 +168,10 @@ function buildCuisines(restaurants: Restaurant[]): CuisineSuggestion[] {
     }
   }
 
-  return [...counts].map(([key, restaurant_count]) => ({
+  return [...counts].map(([key]) => ({
     objectID: key,
     label: labelFor.get(key)!,
-    restaurant_count,
+    restaurant_count: 0,
   }));
 }
 
@@ -173,6 +207,19 @@ async function main() {
 
   console.log(`\n  build-suggest-indices → app ${appId}\n`);
   console.log(`    restaurants read   ${restaurants.length}`);
+
+  // Measure what each label actually returns, rather than deriving it.
+  const labels = [...locations.map((r) => r.label), ...cuisines.map((r) => r.label)];
+  console.log(`    counting           ${labels.length} labels against "${RESTAURANTS_INDEX}"`);
+  const counts = await countByLabel(client, labels);
+  for (const row of [...locations, ...cuisines]) {
+    row.restaurant_count = counts.get(row.label) ?? 0;
+  }
+
+  const empty = [...locations, ...cuisines].filter((r) => r.restaurant_count === 0);
+  if (empty.length > 0) {
+    console.log(`    ⚠ ${empty.length} labels return nothing — they would be dead suggestions`);
+  }
   console.log(`    locations          ${locations.length}`);
   for (const kind of KINDS) {
     const n = locations.filter((row) => row.kind === kind).length;
