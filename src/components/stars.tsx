@@ -10,6 +10,10 @@
  * empty stars, one row of filled stars on top, clipped to the exact
  * percentage. That renders any fraction, not just halves, and avoids the
  * rounding artefacts of a half-star glyph.
+ *
+ * Everything here is a span rather than a div: this renders inside a <p>, and
+ * a div is flow content, which closes the paragraph early. Display is set by
+ * the utility classes, so spans behave identically.
  */
 
 const STAR_PATH =
@@ -17,13 +21,13 @@ const STAR_PATH =
 
 function Row({ className }: { className: string }) {
   return (
-    <div className={`flex gap-px ${className}`} aria-hidden>
+    <span className={`flex gap-px ${className}`} aria-hidden>
       {[0, 1, 2, 3, 4].map((index) => (
         <svg key={index} viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0">
           <path d={STAR_PATH} fill="currentColor" />
         </svg>
       ))}
-    </div>
+    </span>
   );
 }
 
@@ -37,12 +41,12 @@ export function Stars({ rating }: { rating: number }) {
       aria-label={`${rating.toFixed(1)} out of 5 stars`}
     >
       <Row className="text-grey-200" />
-      <div
+      <span
         className="absolute inset-0 overflow-hidden"
         style={{ width: `${percent}%` }}
       >
         <Row className="text-accent" />
-      </div>
+      </span>
     </span>
   );
 }

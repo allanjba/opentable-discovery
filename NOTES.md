@@ -11,6 +11,37 @@
 - [x] Adjust data script to clean the data and reindex
 - [ ] Improve search experience
 
+## Next — settings, in order
+
+1. `popularity_score` (derived, Bayesian average) to replace the `desc(stars_count)` stopgap now live. Neither raw field works: `desc(stars_count)` ranks Abruzzi Trattoria (5.0★, **3 reviews**) 4th for `italian`, above Vittoria (4.8★, 1,018); `desc(reviews_count)` has the mirror flaw, volume over quality. Algolia's own assistant says the same — "pre-computing a weighted score … such as a Bayesian average … is preferred".
+1b. Move `exact` ahead of `attribute` in `ranking` — the candidate fix for the name-ordering trade-off below. Untested.
+1c. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
+2. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
+3. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
+4. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
+5. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
+6. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
+7. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
+
+Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ranking, Recommend — all need behavioural data this index doesn't have. Instrument the events instead and say why.
+
+## UI, paired with the setting it needs
+
+- Highlight matched text — `attributesToHighlight` (already returning `_highlightResult`, 49% of payload, currently unused)
+- Facet search box for 116 cuisines — `searchable(cuisines)` already set
+- Sort dropdown — replicas
+- Booking link on card — needs `reserve_url` back in `attributesToRetrieve`
+- No-results recovery — `removeWordsIfNoResults`
+- "Near me" — `aroundLatLng`
+- Autocomplete — Query Suggestions index
+
+Pure UI, no setting: active filter chips + clear-all · empty-state discovery surface · replace "in 0.002 seconds" with something a diner cares about · responsive/mobile.
+
+## Known issues
+
+- **Intermittent empty facet sidebar on production.** Seen twice: hits correct (e.g. `stakehouse` → 423) but zero facet values, no console errors. Not reproducible on demand; local always works; the Algolia API returns facets correctly for those queries. Both occurrences were when the query changed very shortly after page load, which points at a race, but the effect already cancels stale responses so the mechanism isn't confirmed. **Demo risk — an empty sidebar mid-mock-call would be bad.** Worth pinning down before the interview.
+- Algolia settings and search results are separately async: settings read back via `getSettings` well before live results agree, and during propagation different servers answer differently. Don't A/B a change immediately after making it.
+
 ## Setup
 
 - Separate public
@@ -57,7 +88,10 @@
 - `/` is Algolia, `/old` is the naive version, kept for side-by-side comparison.
 - Search is undebounced. Algolia's docs frame debouncing as something you turn ON for slow networks, not the default.
 - The sidebar needs **two** queries batched into one request — one for hits with the filter, one for facet counts without it. Otherwise selecting a cuisine zeroes every other cuisine and multi-select breaks (disjunctive faceting).
-- `searchableAttributes` is ordered and restricted: name, cuisines+food_type, neighborhood+city, area, dining_style. Order drives the Attribute ranking criterion; commas mean equal weight.
+- `searchableAttributes` is ordered and restricted: cuisines+food_type, neighborhood+city, area, dining_style, **name last**. Order drives the Attribute ranking criterion; commas mean equal weight.
+- `name` last is a measured trade-off, applied by Algolia's config assistant and kept. Gain: `italian` now returns restaurants that *serve* Italian (Pazza Notte, Vittoria) instead of ones with "Italian" in the name (Divino Italian Restaurant) — a naming convention, not a signal. Cost: single-word names colliding with a neighbourhood get buried — the restaurant named `Lafayette` is #14 of 19; `Rye` #5 of 7; `Babylon` #4 of 5. 758 names are single-word. Multi-word names unaffected (Wallsé, Sushi Yasaka, Mama's Fish House all #1).
+- Which order is right depends on OpenTable's traffic mix, not on argument — a discovery question. Their own placeholder reads "by Name, Cuisine, Location". Algolia A/B tests this natively.
+- **Settings drift is real.** The assistant wrote both changes straight to the index; `configure-index.mts` still said `name` first with no `customRanking`, so the next `data:settings` run would have silently reverted them. Script and dashboard are competing sources of truth — after any dashboard change, copy it into the script.
 - That took `restimages`, `single.aspx`, `opentable`, postal codes and phone digits from thousands of hits to 0, with every real query holding.
 - `attributesToRetrieve` cut hits from 23 attributes to 9 (~34% smaller). An attribute stays searchable and facetable whether or not it is returned — three independent lists.
 - Facets declared: cuisines, dining_style, price, area, neighborhood. The sidebar renders the first three.
