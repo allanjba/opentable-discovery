@@ -186,6 +186,17 @@ const SETTINGS: IndexSettings = {
     "searchable(city)",
   ],
 
+  /**
+   * Unset, Algolia highlights every searchable attribute, and _highlightResult
+   * was 49% of the payload while nothing rendered it. Now that InstantSearch's
+   * <Highlight> is on the card, restrict it to the three attributes the card
+   * actually shows.
+   *
+   * Configured here rather than in InstantSearch on purpose — Algolia's guide
+   * is explicit that attributesToHighlight belongs to the index, not the UI.
+   */
+  attributesToHighlight: ["name", "food_type", "neighborhood"],
+
   // 116 distinct cuisine values against a default cap of 100, so 16 would be
   // silently missing from facet responses.
   maxValuesPerFacet: 200,

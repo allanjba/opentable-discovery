@@ -25,8 +25,8 @@ Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ra
 
 ## UI, paired with the setting it needs
 
-- Highlight matched text — `attributesToHighlight` (already returning `_highlightResult`, 49% of payload, currently unused)
-- Facet search box for 116 cuisines — `searchable(cuisines)` already set
+- ~~Highlight matched text~~ — done, via InstantSearch `<Highlight>`
+- ~~Facet search box for 116 cuisines~~ — **rejected.** One search box is enough; the autocomplete's Food Type section covers finding a cuisine. Two inputs on one screen is worse, not better.
 - Sort dropdown — replicas
 - Booking link on card — needs `reserve_url` back in `attributesToRetrieve`
 - No-results recovery — `removeWordsIfNoResults`
@@ -107,6 +107,13 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - It promotes **exact over prefix**, not name over neighbourhood. It cannot break a tie *between* exact matches — `exact` counts exactly-matched words and doesn't know which attribute they came from. `getRankingInfo` shows the restaurant named Lafayette and all 22 in Lafayette neighbourhood/city all report `nbExactWords: 1`, so the tie still falls to `attribute`. **`Lafayette` is still #14 of 19.**
 - The real fix for that is a UI answer, not a ranking one: a federated query showing "restaurants named X" and "restaurants in X" as separate groups rather than one ordering. Parked.
 - A `ranking` change took **~125 seconds** to reach live search, and hit counts were briefly unstable while it settled. Measured, not guessed — three identical runs afterwards showed 0 of 39 queries drifting.
+- **UI is React InstantSearch** (`react-instantsearch` + `react-instantsearch-nextjs`), migrated from a hand-rolled query layer. Algolia's own docs recommend the library; hand-rolling it was worth doing once, to learn what it does.
+- Deleted in the migration: the disjunctive-faceting batching, the paging counter, the stale-response guards, the pinning of selected facet values. `RefinementList` defaults to `sortBy: ['isRefined','count:desc','name:asc']`, so pinning is the library's default.
+- Parity verified: browse still 3 hits · `italian` 874 in the same order · Italian + Contemporary Italian = 850 + 19 = **869**, so OR semantics hold · price still `$$`/`$$$`/`$$$$` via `transformItems`.
+- `<Stats>` renders a single string, so the two-part result line uses the `useStats` hook instead. Every widget has a hook — that's the escape hatch when markup matters. Note its `processingTimeMS` is Algolia's *server* time, so the number is now smaller than the hand-rolled one, which included network latency.
+- `attributesToHighlight` restricted to `name`, `food_type`, `neighborhood` — it was defaulting to all searchable attributes at 49% of payload with nothing rendering it. Algolia's guide is explicit that this belongs to the index, not to InstantSearch.
+- Don't hand-parse `_highlightResult`: Algolia wraps matches in `<em>` but does **not** escape the rest — `Kingfisher <em>Bar</em> & <em>Grill</em>`, raw ampersand. 438 names contain `&`. `<Highlight>` splits into parts and renders text nodes, so nothing is HTML-parsed.
+- **`/` is now server-rendered on demand, not static.** `InstantSearchNext` forces it — and buys real SSR: restaurant names, counts and facets are all in the initial HTML. Previously the page was an empty shell until JS loaded. For a listings site that's an SEO win, so the trade is worth taking.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel
