@@ -9,19 +9,18 @@
 - [x] Algolia account and index data
 - [x] Algolia search component
 - [x] Adjust data script to clean the data and reindex
-- [ ] Improve search experience
+- [ ] Improve search experience (in progress: settings tuned, ranking done)
 
 ## Next — settings, in order
 
-1. `popularity_score` (derived, Bayesian average) to replace the `desc(stars_count)` stopgap now live. Neither raw field works: `desc(stars_count)` ranks Abruzzi Trattoria (5.0★, **3 reviews**) 4th for `italian`, above Vittoria (4.8★, 1,018); `desc(reviews_count)` has the mirror flaw, volume over quality. Algolia's own assistant says the same — "pre-computing a weighted score … such as a Bayesian average … is preferred".
-1b. Move `exact` ahead of `attribute` in `ranking` — the candidate fix for the name-ordering trade-off below. Untested.
-1c. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
-2. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
-3. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
-4. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
-5. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
-6. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
-7. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
+1. Move `exact` ahead of `attribute` in `ranking` — the candidate fix for the name-ordering trade-off below. Untested.
+2. `minWordSizefor1Typo` — `Acme` returns **1,605 hits**. Typo tolerance is very permissive on short words.
+3. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
+4. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
+5. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
+6. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
+7. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
+8. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
 
 Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ranking, Recommend — all need behavioural data this index doesn't have. Instrument the events instead and say why.
 
@@ -68,6 +67,9 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - No country code stored — all 10,000 values are bare 10-digit NANP numbers.
 - `food_type` is split into `cuisines: string[]` on `/` and `,`; the raw field is kept for display. Facet on `cuisines`.
 - That split made Southwestern (36), Small Plates (42), Global (43), Latin (13) and Eclectic (30) facetable — they had no facet presence at all before.
+- `popularity_score` is derived in `clean.mts`: a Bayesian average, `(v/(v+m))·R + (m/(v+m))·C`. `C` = 4.3786, the review-weighted corpus mean, computed at build time. `m` = 140, the p25 of review counts — a policy choice, so it stays a named constant with a reason. Rounded to 4 dp (2,720 distinct values).
+- It exists because Algolia ranks on **stored** attributes — `customRanking` has no query-time scoring function, no `script_score`. That is the trade that buys single-digit-millisecond responses, and it makes any ranking signal the pipeline's job. Algolia's Data Transformations can host that at ingestion if a customer doesn't want to own it.
+- Third time data work was the prerequisite for a search feature: cuisine faceting needed the `food_type` split, phones needed reconciling, ranking needed a signal the source doesn't have.
 - A cuisine hierarchy was tried and rejected: not derivable from the strings without judgement, and 116 values is a display problem, not a data one.
 - Two of the three restaurants shown in their mockup ("Anchor and Hope", "Bluestem Brasserie") are not in our dataset — the screenshot was built from a different cut.
 
@@ -98,6 +100,10 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - Multi-facet disjunctive faceting: 1 request for hits + 1 per facet with that facet's own filter removed, all batched into one round trip.
 - Price facets and displays from the `price` integer, rendered $$ / $$$ / $$$$ — the same notation OpenTable's own filter uses. Filter and display from one field, so the 220 price conflicts can never show on screen.
 - Star ratings restored on the result card — they were in their mockup and we had dropped them by accident.
+- `customRanking: ["desc(popularity_score)", "desc(reviews_count)"]`. Two entries because customRanking is a list of tie-breakers like the main formula — 2,280 records share a score at 4 dp.
+- Measured before/after. Browsing 5,000 with no ranking: **The Edgewater Grill, 3.9★**, led on insertion order. With `desc(stars_count)`: 5.0★/3-review places in the top 5. With `popularity_score`: Russell's (4.9★/2,512), Quince (4.9★/1,693), Mama's Fish House (4.8★/12,669) at #6. Ellen's Cafe (5.0★, **1 review**) went from #1 to #2,391.
+- Float precision on `customRanking` is preserved — 613 adjacent pairs in the top 1,000 differ by <0.001 with **zero** inversions, so no scaled integer is needed. Verified, not assumed.
+- `popularity_score` is deliberately not in `attributesToRetrieve` — it's a ranking input, not a display value. Requested per-query in the verification script, which shows the index-level list is a default, not a cage.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

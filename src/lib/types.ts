@@ -74,4 +74,10 @@ export type Restaurant = Omit<MergedRestaurant, "phone" | "phone_number"> & {
    * `food_type`.
    */
   cuisines: string[];
+  /**
+   * A Bayesian average of `stars_count` and `reviews_count`, the attribute
+   * `customRanking` sorts on. Derived because Algolia ranks on stored values
+   * and has no query-time scoring function — see `scripts/clean.mts`.
+   */
+  popularity_score: number;
 };

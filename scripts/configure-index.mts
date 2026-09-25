@@ -77,23 +77,24 @@ const SETTINGS: IndexSettings = {
    * The 8th and last ranking criterion, and the only one that decides which
    * result comes *first* rather than which results come back. Unset, all 5,000
    * records tie on every textual criterion when browsing, so insertion order
-   * won and a 3.9-star restaurant led the list.
+   * won and a 3.9-star restaurant led a list of 5,000.
    *
-   * A stopgap. `desc(stars_count)` cannot tell 5.0 from one review apart from
-   * 5.0 from a thousand, which is visible immediately:
+   * Neither source field works alone, and both were tried on this index:
    *
-   *   "italian"  Abruzzi Trattoria, 5.0 stars from 3 reviews, ranks #4,
-   *              above Vittoria at 4.8 from 1,018
-   *   "sushi"    Sekisui - Bartlett, 5.0 from 19 reviews, ranks #1,
-   *              above Sushi Sasabune Hawaii at 4.8 from 329
+   *   desc(stars_count)     "italian" put Abruzzi Trattoria, 5.0 stars from
+   *                         3 reviews, at #4 — above Vittoria, 4.8 from 1,018
+   *   desc(reviews_count)    the mirror flaw: volume beats quality
    *
-   * `desc(reviews_count)` alone has the mirror problem — volume beats quality.
-   * The fix is a precomputed Bayesian average, which is the next step; Algolia
-   * cannot compute it, because custom ranking sorts a stored attribute and
-   * there is no query-time scoring function. That is the trade that keeps
-   * responses in single-digit milliseconds.
+   * So the ranking signal is `popularity_score`, a Bayesian average computed in
+   * scripts/clean.mts. It has to be precomputed: customRanking sorts a stored
+   * attribute and Algolia has no query-time scoring function, which is the
+   * trade that keeps responses in single-digit milliseconds.
+   *
+   * Two entries because customRanking is a list of tie-breakers, like the main
+   * formula. 2,280 records share a score at four decimals; when they do, prefer
+   * the better-evidenced one.
    */
-  customRanking: ["desc(stars_count)", "desc(reviews_count)"],
+  customRanking: ["desc(popularity_score)", "desc(reviews_count)"],
 
   /**
    * Only what the result card renders. objectID is always returned.
