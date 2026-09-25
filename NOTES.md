@@ -114,6 +114,15 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - `attributesToHighlight` restricted to `name`, `food_type`, `neighborhood` — it was defaulting to all searchable attributes at 49% of payload with nothing rendering it. Algolia's guide is explicit that this belongs to the index, not to InstantSearch.
 - Don't hand-parse `_highlightResult`: Algolia wraps matches in `<em>` but does **not** escape the rest — `Kingfisher <em>Bar</em> & <em>Grill</em>`, raw ampersand. 438 names contain `&`. `<Highlight>` splits into parts and renders text nodes, so nothing is HTML-parsed.
 - **`/` is now server-rendered on demand, not static.** `InstantSearchNext` forces it — and buys real SSR: restaurant names, counts and facets are all in the initial HTML. Previously the page was an empty shell until JS loaded. For a listings site that's an SEO win, so the trade is worth taking.
+- Two **derived indices** feed the autocomplete: `locations` (1,269 rows) and `cuisines` (116). Built by `npm run data:suggest` from `restaurants.json` — no new information, just the restaurant data aggregated.
+- They exist because `<Autocomplete>` renders *hits*, one index per section. A facet-value lookup can't be a section, and couldn't carry a `kind`, a display label or its own ranking anyway.
+- Locations merge by label, broadest kind wins (area > city > neighborhood). 2,029 raw rows → 1,269: **759 labels are more than one kind** ("San Diego" is a city, a neighbourhood *and* an area). Unmerged, the dropdown shows the same place three times.
+- `restaurant_count` is the **union** across all three location fields, not the count for the field it was filed under — because selecting a suggestion runs a plain text search and Algolia searches all three. Verified against real searches: San Diego 285/285, SE Portland 20/20, Portland / Oregon 197/197, Chelsea 41/41.
+- Both indices rank `desc(restaurant_count)`, so `portland` gives Portland (117) and Portland / Oregon (197) above North Portland (5).
+- `replaceAllObjects`, not `saveObjects` — these are fully derived, so a label that leaves the source has to leave here. It waits internally and its default scopes preserve settings across the swap.
+- **Data-quality find:** city `"Portlando"` — one restaurant (Cerulean, Pearl District, zip 97209, state OR). Invisible in a 5,000-row list, obvious the moment you aggregate the field. Kept, not silently corrected, consistent with the phone and price conflicts. A suggestions index is a free data-quality audit.
+- `salt lak` returns nothing and that is correct — **there is no Utah in this dataset** (35 states, no UT). Checked rather than chased.
+- Gotcha: `paginationLimitedTo` defaults to **1,000**, so paging through an index silently stops there. Use `browseObjects` to read everything — it truncated a verification before I noticed.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

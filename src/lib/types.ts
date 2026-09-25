@@ -81,3 +81,31 @@ export type Restaurant = Omit<MergedRestaurant, "phone" | "phone_number"> & {
    */
   popularity_score: number;
 };
+
+/**
+ * Which field a location label came from. Used only as the subtitle in the
+ * autocomplete, so "Portland" the city reads differently from "SE Portland"
+ * the neighbourhood.
+ */
+export type LocationKind = "area" | "city" | "neighborhood";
+
+/**
+ * A row in the derived `locations` index.
+ *
+ * The autocomplete renders hits, so a location has to be a record somewhere —
+ * facet values cannot carry a kind, a display label or their own ranking.
+ */
+export type LocationSuggestion = {
+  objectID: string;
+  label: string;
+  kind: LocationKind;
+  /** Restaurants matching this label in ANY of the three location fields. */
+  restaurant_count: number;
+};
+
+/** A row in the derived `cuisines` index. */
+export type CuisineSuggestion = {
+  objectID: string;
+  label: string;
+  restaurant_count: number;
+};

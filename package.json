@@ -9,6 +9,7 @@
     "lint": "eslint",
     "data:build": "node scripts/build-dataset.mts",
     "data:index": "node scripts/index-algolia.mts",
+    "data:suggest": "node scripts/build-suggest-indices.mts",
     "search:compare": "node scripts/compare-search.mts",
     "data:settings": "node scripts/configure-index.mts"
   },
