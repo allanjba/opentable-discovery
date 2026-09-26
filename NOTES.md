@@ -153,6 +153,13 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - That notice **branches on whether the user is searching or browsing**, because two different facts wear the same shape. Browsing from SLC, "no inventory near you" is true. But searching `New York` from Miami also puts the first hit 1,676 km away, and claiming "no inventory near Miami" from that is false — Miami has 32 restaurants within 10 km. Only the browsing case can say anything about coverage; the searching case says *nothing matching "New York" near Miami*.
 - Watchdog on the location request: `getCurrentPosition`'s own `timeout` does **not** cover the permission prompt — Chrome doesn't start counting until you answer. An ignored prompt pinned the UI in "requesting" forever. 12s fallback, and a late fix still wins.
 - All 5,000 records have valid `_geoloc` already in Algolia's expected shape.
+- **Infinite scroll** via `useInfiniteHits` + an IntersectionObserver sentinel. InstantSearch has no auto-loading widget — `<InfiniteHits>` gives you a button and stops — and the hook-plus-sentinel is Algolia's own documented pattern.
+- Non-obvious bit: an IntersectionObserver only fires when an element **crosses** the threshold. If a page is short enough that the sentinel is still on screen afterwards, no second event arrives and the list stalls. The observer is rebuilt after each page so it re-fires while the sentinel stays visible — fills the viewport, then stops.
+- `rootMargin: 400px` starts the next page before the sentinel is actually visible.
+- Ceiling: `paginationLimitedTo` defaults to **1,000** hits and Algolia warns that raising it slows search. It degrades gracefully — `isLastPage` just goes true there.
+- **One page size (10) everywhere.** The 3-result browse teaser could not survive infinite scroll: the sentinel is on screen at first paint, so a second page loads before anyone sees three. Keeping it only meant 5 round trips for 15 results.
+- Search bar and sidebar are `sticky`, rather than an inner scroll container. One scrollbar, the observer keeps its default viewport root, and no nested-scroll behaviour to go wrong on touch. `self-start` on the sidebar matters — a flex child stretches to the row height by default, and a full-height element has nothing to stick to. Sticky is `sm:`-only, so mobile keeps normal flow.
+- Also fixed in passing: a real no-results state (the InstantSearch migration had dropped it) and "1 **results** found".
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

@@ -2,15 +2,14 @@
 
 import {
   Configure,
-  InfiniteHits,
   RefinementList,
-  useInstantSearch,
   useStats,
 } from "react-instantsearch";
 import { InstantSearchNext } from "react-instantsearch-nextjs";
 import type { RefinementListProps } from "react-instantsearch";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
-import { RestaurantHit, priceSymbols } from "@/components/restaurant-hit";
+import { priceSymbols } from "@/components/restaurant-hit";
+import { InfiniteResults } from "@/components/infinite-results";
 import { SearchAutocomplete } from "@/components/autocomplete";
 import { CoverageNotice, SortedByDistance } from "@/components/near-me";
 import { DemoPanel } from "@/components/demo-panel";
@@ -30,8 +29,14 @@ import { useGeolocation } from "@/lib/use-geolocation";
  * to do once, to understand what the library is doing.
  */
 
-/** Browsing with no query shows three results, as their current experience does. */
-const BROWSE_LIMIT = 3;
+/**
+ * One page size everywhere.
+ *
+ * Browsing used to show three, mirroring the mockup's empty state. Infinite
+ * scroll makes that unreachable: the sentinel is on screen at first paint, so a
+ * second page loads before anyone sees three. Keeping it only meant loading
+ * three at a time — five round trips for fifteen results.
+ */
 const PAGE_SIZE = 10;
 
 export function AlgoliaSearchApp() {
@@ -53,7 +58,7 @@ export function AlgoliaSearchApp() {
         onClear={geo.clear}
       />
 
-      <HitsPerPage />
+      <Configure hitsPerPage={PAGE_SIZE} />
 
       {/*
         Geo parameters only exist while the user has asked for distance search.
@@ -80,12 +85,24 @@ export function AlgoliaSearchApp() {
       )}
 
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
-        <div className="relative z-50 bg-brand-dark p-6 shadow-md">
+        {/*
+          Sticky rather than an inner scroll container. Letting the page scroll
+          and pinning the chrome keeps one scrollbar, keeps the
+          IntersectionObserver on its default viewport root, and avoids the
+          nested-scroll behaviour that goes wrong on touch devices.
+        */}
+        <div className="sticky top-0 z-50 bg-brand-dark p-6 shadow-md">
           <SearchAutocomplete />
         </div>
 
         <div className="flex flex-col bg-surface shadow-md sm:flex-row">
-          <aside className="w-full border-grey-200 p-6 sm:w-64 sm:shrink-0 sm:border-r">
+          {/*
+            `self-start` matters: a flex child stretches to the row height by
+            default, and a full-height element has nothing to stick to. The
+            offset clears the search bar, and the facet list scrolls internally
+            if it ever outgrows the viewport.
+          */}
+          <aside className="w-full border-grey-200 p-6 sm:sticky sm:top-[6.5rem] sm:max-h-[calc(100vh-6.5rem)] sm:w-64 sm:shrink-0 sm:self-start sm:overflow-y-auto sm:border-r">
             <Facet attribute="cuisines" label="Cuisine/Food Type" limit={7} />
             <Facet attribute="dining_style" label="Dining Style" limit={10} />
             <Facet
@@ -109,16 +126,7 @@ export function AlgoliaSearchApp() {
 
             <CoverageNotice origin={geo.origin} />
 
-            <InfiniteHits
-              hitComponent={RestaurantHit}
-              showPrevious={false}
-              classNames={{
-                list: "space-y-6",
-                loadMore:
-                  "mt-8 mx-auto block border border-grey-300 px-10 py-2.5 text-ink hover:bg-grey-100",
-                disabledLoadMore: "hidden",
-              }}
-            />
+            <InfiniteResults />
           </section>
         </div>
       </div>
@@ -182,7 +190,7 @@ function ResultStats() {
   return (
     <>
       <span className="font-semibold text-ink">
-        {nbHits.toLocaleString()} results found
+        {nbHits.toLocaleString()} {nbHits === 1 ? "result" : "results"} found
       </span>
       <span className="text-sm text-grey-500">
         in {(processingTimeMS / 1000).toFixed(3)} seconds
@@ -191,22 +199,3 @@ function ResultStats() {
   );
 }
 
-/**
- * Three results while browsing, ten once the user is actually searching.
- *
- * `<Configure>` is how a search parameter is set declaratively, and rendering
- * it with a different value re-issues the search. Reading `indexUiState` rather
- * than tracking our own state keeps this honest when the query or a refinement
- * changes from anywhere — including the autocomplete, later.
- */
-function HitsPerPage() {
-  const { indexUiState } = useInstantSearch();
-
-  const browsing =
-    !indexUiState.query?.trim() &&
-    Object.values(indexUiState.refinementList ?? {}).every(
-      (values) => values.length === 0,
-    );
-
-  return <Configure hitsPerPage={browsing ? BROWSE_LIMIT : PAGE_SIZE} />;
-}
