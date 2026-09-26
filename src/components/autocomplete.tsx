@@ -9,6 +9,7 @@ import type {
   Restaurant,
 } from "@/lib/types";
 import { INDEX_NAME } from "@/lib/algolia";
+import type { Origin } from "@/lib/use-geolocation";
 
 /**
  * The grouped autocomplete, modelled on OpenTable's own.
@@ -27,6 +28,15 @@ import { INDEX_NAME } from "@/lib/algolia";
  * search — it does not apply a filter. Filtering stays in the sidebar. That
  * works because every suggestion is text the main index already searches well:
  * "SE Portland" returns its 20, "Small Plates" its 42.
+ *
+ * The Restaurants section is distance-aware. Each index in <Autocomplete> has
+ * its own searchParameters and does NOT inherit the page's <Configure>, so the
+ * geo parameters are passed in explicitly — which is the better arrangement
+ * anyway, since the dropdown wants its own tuning. Typing "steak" in Denver
+ * should offer Denver steakhouses before San Francisco ones.
+ *
+ * Locations and Food Type stay un-geocoded: those rows are labels, not places,
+ * and their records carry no _geoloc to rank on.
  */
 
 const SECTION_LIMIT = 5;
@@ -58,7 +68,7 @@ function queryFor(item: SuggestionItem): string {
   return "label" in item ? item.label : "";
 }
 
-export function SearchAutocomplete() {
+export function SearchAutocomplete({ origin }: { origin: Origin | null }) {
   const root = useRef<HTMLDivElement>(null);
 
   /**
@@ -120,6 +130,16 @@ export function SearchAutocomplete() {
               // it would repeat whatever the Locations section already says.
               restrictSearchableAttributes: ["name"],
               attributesToRetrieve: ["name", "neighborhood", "city"],
+              // Same shape as the main results: sort by distance without
+              // filtering, in 2 km buckets so that nearby matches tie and fall
+              // through to name relevance rather than being ordered by metres.
+              ...(origin
+                ? {
+                    aroundLatLng: `${origin.lat},${origin.lng}`,
+                    aroundRadius: "all" as const,
+                    aroundPrecision: 2000,
+                  }
+                : {}),
             },
             classNames: INDEX_CLASS_NAMES,
           },

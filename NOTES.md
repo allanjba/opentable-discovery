@@ -160,6 +160,9 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - **One page size (10) everywhere.** The 3-result browse teaser could not survive infinite scroll: the sentinel is on screen at first paint, so a second page loads before anyone sees three. Keeping it only meant 5 round trips for 15 results.
 - Search bar and sidebar are `sticky`, rather than an inner scroll container. One scrollbar, the observer keeps its default viewport root, and no nested-scroll behaviour to go wrong on touch. `self-start` on the sidebar matters — a flex child stretches to the row height by default, and a full-height element has nothing to stick to. Sticky is `sm:`-only, so mobile keeps normal flow.
 - Also fixed in passing: a real no-results state (the InstantSearch migration had dropped it) and "1 **results** found".
+- **The autocomplete's Restaurants section is distance-aware too.** Each index in `<Autocomplete>` has its own `searchParameters` and does **not** inherit the page's `<Configure>`, so the geo params are passed explicitly — better anyway, since the dropdown can be tuned separately.
+- Same query, different origin: `steak` from Denver offers Prime Steakhouse, **Ruth's Chris - Denver**, Morton's - Denver, LoHi Steakbar. From New York: Bobby Van's, Liberty Prime, Staghorn, Frankie & Johnnie's. That Ruth's Chris line is the brief's third pain point — *"chains have multiple locations… hard to identify the correct one"* — answered in the dropdown, before the search even runs.
+- Locations and Food Type stay un-geocoded: those rows are labels, not places, and carry no `_geoloc`. **Possible follow-up:** give each location row a centroid from its restaurants, so "was" from New York offers Washington Heights before Washington DC.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

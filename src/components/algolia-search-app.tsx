@@ -92,7 +92,7 @@ export function AlgoliaSearchApp() {
           nested-scroll behaviour that goes wrong on touch devices.
         */}
         <div className="sticky top-0 z-50 bg-brand-dark p-6 shadow-md">
-          <SearchAutocomplete />
+          <SearchAutocomplete origin={geo.origin} />
         </div>
 
         <div className="flex flex-col bg-surface shadow-md sm:flex-row">
