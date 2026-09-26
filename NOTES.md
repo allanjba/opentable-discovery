@@ -15,9 +15,8 @@
 
 1. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
 2. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
-3. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
-4. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
-5. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
+3. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
+4. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
 
 Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ranking, Recommend — all need behavioural data this index doesn't have. Instrument the events instead and say why.
 
@@ -28,7 +27,7 @@ Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ra
 - Sort dropdown — replicas
 - Booking link on card — needs `reserve_url` back in `attributesToRetrieve`
 - No-results recovery — `removeWordsIfNoResults`
-- "Near me" — `aroundLatLng`
+- ~~"Near me"~~ — done, opt-in distance search
 - ~~Autocomplete~~ — done, InstantSearch `<Autocomplete>` over three indices. A Query Suggestions index would add a "popular searches" section, but it's built from analytics we don't have.
 
 Pure UI, no setting: active filter chips + clear-all · empty-state discovery surface · replace "in 0.002 seconds" with something a diner cares about · responsive/mobile.
@@ -37,6 +36,12 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 
 - **Intermittent empty facet sidebar on production.** Seen twice: hits correct (e.g. `stakehouse` → 423) but zero facet values, no console errors. Not reproducible on demand; local always works; the Algolia API returns facets correctly for those queries. Both occurrences were when the query changed very shortly after page load, which points at a race, but the effect already cancels stale responses so the mechanism isn't confirmed. **Demo risk — an empty sidebar mid-mock-call would be bad.** Worth pinning down before the interview.
 - Algolia settings and search results are separately async: settings read back via `getSettings` well before live results agree, and during propagation different servers answer differently. Don't A/B a change immediately after making it.
+
+## Demo controls
+
+- `Ctrl+Shift+D` or `/?demo` opens the panel · `Esc` closes. Ctrl not Cmd — `Cmd+Shift+D` is bookmark-all-tabs in Chrome.
+- Holds the **search-origin override** (New York · San Francisco · Denver · Miami — the four with real coverage, plus "use my real location") and the **link to `/old`**.
+- Nothing in it is a product feature, and that's the rule: a prototype is read as a *proposal*, so every control on the page is a claim about what the product should do. Anything that exists only for our convenience goes here. The page itself now shows no demo affordances at all.
 
 ## Setup
 
@@ -137,6 +142,17 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - More useful than the list is what was **measured as unnecessary and left out**: `steak house`↔`steakhouse` (442/421, both already work — it was on the roadmap from day one and would have been dead weight), `barbeque` (typo tolerance covers it), `burger`/`burgers` (plurals), `tapas`/`small plates` (the cuisine split already links them), `vegas`/`Las Vegas`. Rejected after measuring: `la` (493 hits, two letters, too noisy) and `vegan`→`vegetarian` (one vegetarian restaurant, and `vegan` already mis-matches Las Vegas).
 - **Synonyms are per-index.** Applying them to `restaurants` only shipped a visible bug: `nyc` returned 1,415 restaurants while the autocomplete's Locations section stayed empty, because the `locations` index had never heard the word. One shared list, applied to all three — a synonym only fires when its term appears, so sharing costs nothing.
 - `new york city` → `new york` (one-way). The catalogue stores the city as "New York" and Algolia requires every query word to match, so the extra word sent the search to the 30 restaurants with "City" in their name. **30 → 1,415.** Note `removeWordsIfNoResults` would *not* have fixed this — it only fires at zero results, and this returned 30.
+- **Geo is on by default** — location is requested on load. Reversed from an earlier opt-in position. What makes it safe is `aroundPrecision`: at 2 km buckets, nearby ordering is a *tie-break*, not an override, so relevance and popularity still decide within a neighbourhood. It also answers a pain point from the brief directly — *"chains have multiple locations in the same city, making it hard to identify the correct one"* — where nearest-first is the answer.
+- A denial is not an error state: no distances, ranking untouched, nothing said. `<Configure>` is rendered only when an origin exists, so omitting it restores previous behaviour exactly.
+- **Browser geolocation, not `aroundLatLngViaIP`** — and the reason is our own SSR. Algolia's docs are explicit that a server-side request geolocates to the *server* unless you forward `X-Forwarded-For`; since `/` is server-rendered, IP-based would silently centre every search on our Vercel region.
+- `aroundRadius: "all"` sorts by distance without filtering. A fixed radius would return **zero** results from anywhere uncovered.
+- `aroundPrecision: 2000` — 2 km buckets, so restaurants in the same neighbourhood tie on Geo and fall through to relevance and `popularity_score`. Visible in the demo: from New York the top three are 1.5 / 0.5 / 1.9 km, ordered by reviews (4,777 → 1,762 → 1,105), not by distance. At the 10 m default, distance alone would order everything and popularity would never get a say.
+- Distance comes from `_rankingInfo.matchedGeoLocation.distance` (`getRankingInfo`, only while geo is on) — no client-side haversine, and no need to retrieve `_geoloc` on every hit.
+- **Coverage is patchy and the UI says so.** Within 10 km: New York 770, Denver 137, San Francisco 127, Miami 32, LA 9. **Zero** for Atlanta (nearest 167 km), Chicago (116), Boston (123), Seattle (220), Salt Lake City (207), Paris (5,608), London (5,328). Of Algolia's five offices only NYC and SF have data.
+- So when the nearest hit is >50 km, a notice states the distance. Turns a feature that looks broken into a coverage finding — *the search is correct, the inventory is not there* — which is the more useful conversation.
+- That notice **branches on whether the user is searching or browsing**, because two different facts wear the same shape. Browsing from SLC, "no inventory near you" is true. But searching `New York` from Miami also puts the first hit 1,676 km away, and claiming "no inventory near Miami" from that is false — Miami has 32 restaurants within 10 km. Only the browsing case can say anything about coverage; the searching case says *nothing matching "New York" near Miami*.
+- Watchdog on the location request: `getCurrentPosition`'s own `timeout` does **not** cover the permission prompt — Chrome doesn't start counting until you answer. An ignored prompt pinned the UI in "requesting" forever. 12s fallback, and a late fix still wins.
+- All 5,000 records have valid `_geoloc` already in Algolia's expected shape.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel

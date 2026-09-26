@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Configure,
   InfiniteHits,
@@ -13,6 +12,9 @@ import type { RefinementListProps } from "react-instantsearch";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
 import { RestaurantHit, priceSymbols } from "@/components/restaurant-hit";
 import { SearchAutocomplete } from "@/components/autocomplete";
+import { CoverageNotice, SortedByDistance } from "@/components/near-me";
+import { DemoPanel } from "@/components/demo-panel";
+import { useGeolocation } from "@/lib/use-geolocation";
 
 /**
  * The search experience, built on React InstantSearch.
@@ -33,6 +35,8 @@ const BROWSE_LIMIT = 3;
 const PAGE_SIZE = 10;
 
 export function AlgoliaSearchApp() {
+  const geo = useGeolocation();
+
   return (
     <InstantSearchNext
       indexName={INDEX_NAME}
@@ -41,7 +45,39 @@ export function AlgoliaSearchApp() {
       // breaking change later; both flags are the v8 defaults.
       future={{ preserveSharedStateOnUnmount: true, persistHierarchicalRootCount: true }}
     >
+      <DemoPanel
+        status={geo.status}
+        origin={geo.origin}
+        onRequest={geo.request}
+        onPreset={geo.usePreset}
+        onClear={geo.clear}
+      />
+
       <HitsPerPage />
+
+      {/*
+        Geo parameters only exist while the user has asked for distance search.
+        Rendering <Configure> conditionally is how a search parameter is turned
+        off in InstantSearch — omitting it restores the previous behaviour
+        exactly, which matters because Geo is ranking criterion #2 and would
+        otherwise outrank everything the user actually typed.
+
+        aroundRadius "all" sorts by distance without filtering. A fixed radius
+        would return zero results from anywhere the dataset does not cover.
+
+        aroundPrecision groups distances into 2 km buckets, so restaurants in
+        the same neighbourhood tie on Geo and fall through to relevance and
+        popularity. At the 10 m default, distance alone would order everything
+        and popularity_score would never get a say.
+      */}
+      {geo.status === "on" && geo.origin && (
+        <Configure
+          aroundLatLng={`${geo.origin.lat},${geo.origin.lng}`}
+          aroundRadius="all"
+          aroundPrecision={2000}
+          getRankingInfo
+        />
+      )}
 
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
         <div className="relative z-50 bg-brand-dark p-6 shadow-md">
@@ -66,15 +102,12 @@ export function AlgoliaSearchApp() {
           </aside>
 
           <section className="min-w-0 flex-1 p-6">
-            <div className="mb-6 flex items-baseline gap-2 border-b border-grey-200 pb-3">
+            <div className="mb-6 flex flex-wrap items-baseline gap-2 border-b border-grey-200 pb-3">
               <ResultStats />
-              <Link
-                href="/old"
-                className="ml-auto text-xs text-grey-400 underline hover:text-brand"
-              >
-                view current experience
-              </Link>
+              <SortedByDistance origin={geo.origin} />
             </div>
+
+            <CoverageNotice origin={geo.origin} />
 
             <InfiniteHits
               hitComponent={RestaurantHit}

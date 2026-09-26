@@ -3,6 +3,7 @@ import { Highlight } from "react-instantsearch";
 import type { Hit } from "instantsearch.js";
 import type { Restaurant } from "@/lib/types";
 import { Stars } from "@/components/stars";
+import { distanceKm } from "@/components/near-me";
 
 /**
  * One result card.
@@ -20,6 +21,9 @@ import { Stars } from "@/components/stars";
  * 438 restaurant names containing "&" are safe without any escaping of ours.
  */
 export function RestaurantHit({ hit }: { hit: Hit<Restaurant> }) {
+  // Present only while a distance search is running; Algolia computes it.
+  const km = distanceKm(hit);
+
   return (
     <div className="flex gap-4">
       {/* fill + object-cover crops whatever aspect ratio the source has into a
@@ -55,6 +59,12 @@ export function RestaurantHit({ hit }: { hit: Hit<Restaurant> }) {
           <Highlight hit={hit} attribute="neighborhood" classNames={HIGHLIGHT} />
           {" | "}
           {priceSymbols(hit.price)}
+          {km !== null && (
+            <span className="font-semibold text-brand">
+              {" | "}
+              {km < 10 ? km.toFixed(1) : Math.round(km)} km
+            </span>
+          )}
         </p>
       </div>
     </div>
