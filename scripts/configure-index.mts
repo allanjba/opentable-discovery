@@ -8,8 +8,7 @@
  * copied here the next run of this script would have silently reverted them —
  * which is the exact drift having one source of truth is meant to prevent.
  *
- * Still at Algolia's defaults, on purpose: ranking, typoTolerance, synonyms,
- * rules, removeWordsIfNoResults.
+ * Still at Algolia's defaults, on purpose: rules, removeWordsIfNoResults.
  *
  * Run with `npm run data:settings`.
  */
@@ -18,6 +17,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { algoliasearch } from "algoliasearch";
 import type { IndexSettings } from "algoliasearch";
+import { SYNONYMS } from "./synonyms.mts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 process.loadEnvFile(resolve(root, ".env"));
@@ -187,6 +187,25 @@ const SETTINGS: IndexSettings = {
   ],
 
   /**
+   * Default is 4, meaning a four-letter query word is allowed one typo. That is
+   * too generous for this data and it shows: "Acme" matched 1,605 of 5,000
+   * records, "Hilo" 252, "Napa" 239, "Vail" 355 — all by typo, against real
+   * counts of 3, 1, 8 and 27.
+   *
+   * It surfaced through the autocomplete, which puts a count on every
+   * suggestion. A count is a promise, and it was the promise being wrong that
+   * made an existing over-matching problem visible.
+   *
+   * Raising it to 5 means four-letter words must match exactly, while five
+   * letters and up keep their typo. minWordSizefor2Typos is left at its default
+   * of 8.
+   *
+   * One setting, chosen as a worked example rather than a full typo-tolerance
+   * audit — in a real engagement this is what you A/B against traffic.
+   */
+  minWordSizefor1Typo: 5,
+
+  /**
    * Unset, Algolia highlights every searchable attribute, and _highlightResult
    * was 49% of the payload while nothing rendered it. Now that InstantSearch's
    * <Highlight> is on the card, restrict it to the three attributes the card
@@ -247,6 +266,15 @@ async function main() {
 
   await client.setSettings({ indexName: INDEX_NAME, indexSettings: SETTINGS });
 
+  // replaceExistingSynonyms means this file is the source of truth: deleting an
+  // entry here deletes it from the index, rather than leaving an orphan rule
+  // behind that nobody remembers adding.
+  await client.saveSynonyms({
+    indexName: INDEX_NAME,
+    synonymHit: SYNONYMS,
+    replaceExistingSynonyms: true,
+  });
+
   const confirmed = await waitForSettings(client);
   const settings = confirmed ?? (await client.getSettings({ indexName: INDEX_NAME }));
 
@@ -256,6 +284,8 @@ async function main() {
   console.log(`    searchableAttributes   ${JSON.stringify(settings.searchableAttributes ?? "(default: every attribute)")}`);
   console.log(`    customRanking          ${JSON.stringify(settings.customRanking ?? "(default: none)")}`);
   console.log(`    ranking                ${JSON.stringify(settings.ranking)}`);
+  console.log(`    minWordSizefor1Typo    ${JSON.stringify(settings.minWordSizefor1Typo)}`);
+  console.log(`    synonyms               ${SYNONYMS.length} (${SYNONYMS.map((s) => s.objectID).join(", ")})`);
 
   if (!confirmed) {
     console.log(

@@ -20,6 +20,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { algoliasearch } from "algoliasearch";
 import type { IndexSettings } from "algoliasearch";
+import { SYNONYMS } from "./synonyms.mts";
 import type {
   CuisineSuggestion,
   LocationKind,
@@ -182,6 +183,15 @@ async function push(
   settings: IndexSettings,
 ) {
   await client.setSettings({ indexName, indexSettings: settings });
+
+  // Synonyms are per-index, and the autocomplete queries three of them. Without
+  // this, "nyc" returned 1,415 restaurants while the Locations section of the
+  // dropdown stayed empty.
+  await client.saveSynonyms({
+    indexName,
+    synonymHit: SYNONYMS,
+    replaceExistingSynonyms: true,
+  });
 
   // replaceAllObjects rather than saveObjects: these indices are fully derived,
   // so a label that disappears from the source has to disappear here too.

@@ -13,13 +13,11 @@
 
 ## Next — settings, in order
 
-1. `minWordSizefor1Typo` — now the clear next step. Typo tolerance on short words is why 338 of 1,385 suggestions promise a count the search doesn't deliver: `Acme` says 3 / returns **1,605**, `Hilo` 1 / 252, `Portlando` 1 / 296, `Coronado` 13 / 374. All 4–6 letter words.
-2. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
-3. Synonyms — `bbq`↔`barbecue`, `steak house`↔`steakhouse`.
-4. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
-5. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
-6. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
-7. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
+1. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
+2. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
+3. Geo — `aroundLatLng` + three-tier fallback. Geo is 2nd in the ranking formula, so tune `aroundPrecision` or it tramples known-item search.
+4. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
+5. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
 
 Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ranking, Recommend — all need behavioural data this index doesn't have. Instrument the events instead and say why.
 
@@ -130,6 +128,15 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - **Counts are measured, not derived.** Each label is queried against the restaurants index at build time (1,385 labels, batches of 50, ~28 requests). A locally derived count lies: `Sushi` has 67 in `cuisines` but the search returns 106, because **39 restaurants named "Sushi …" are filed under food_type Japanese**. Same shape for Steakhouse (328 vs 421) and French (167 vs 248) — the names know more than the cuisine field.
 - Counted with `typoTolerance: false`, because choosing a suggestion is choosing a literal string. It also keeps counts sane: typo-tolerant, `Acme` measures 1,605 against a real 3 and would outrank New York / Tri-State Area. Strict matches the source field for 1,012 of 1,275 labels vs 814.
 - Promise vs delivery now: **1,047 of 1,385 exact (75.6%)**, and 239 of the remaining 338 are within 5. The big gaps are all typo tolerance — see roadmap item 1.
+- `minWordSizefor1Typo: 5` (default 4), so four-letter words must match exactly. **`Acme` 1,605 → 3 · `Hilo` 252 → 1 · `Napa` 239 → 8 · `Vail` 355 → 27**, while `stakehouse` (423), `Wallse` (1), `restaurnt` (564), `italian` (874) and `sushi` (106) are all untouched — real typo tolerance survives intact. Propagated in ~6s, unlike the ~125s a `ranking` change took.
+- Side effect: suggestion promise-vs-delivery went **75.6% → 79.5%** exact.
+- Not chased, deliberately (mock project, one worked example): the remaining gaps are 5+ letter words that still get a typo. The good one to mention is **`Coronado` → 374, because at 8 letters it gets *two* typos and matches "Colorado"**. That's `minWordSizefor2Typos`, and in a real engagement you'd A/B it against traffic rather than guess.
+- **Synonyms** live in `scripts/synonyms.mts` and are applied to all three indices. Five entries, `replaceExistingSynonyms: true` so the file is the source of truth.
+- `bbq` ⇄ `barbecue` ⇄ `bar-b-q` (two-way): **4 → 26**. The only alternate *spelling* this data needs.
+- `nyc` / `sf` / `nola` → the full city name (one-way): **15 → 1,415**, **5 → 264**, **4 → 94**. One-way verified: `new york` stayed at 1,415, not broadened in reverse.
+- More useful than the list is what was **measured as unnecessary and left out**: `steak house`↔`steakhouse` (442/421, both already work — it was on the roadmap from day one and would have been dead weight), `barbeque` (typo tolerance covers it), `burger`/`burgers` (plurals), `tapas`/`small plates` (the cuisine split already links them), `vegas`/`Las Vegas`. Rejected after measuring: `la` (493 hits, two letters, too noisy) and `vegan`→`vegetarian` (one vegetarian restaurant, and `vegan` already mis-matches Las Vegas).
+- **Synonyms are per-index.** Applying them to `restaurants` only shipped a visible bug: `nyc` returned 1,415 restaurants while the autocomplete's Locations section stayed empty, because the `locations` index had never heard the word. One shared list, applied to all three — a synonym only fires when its term appears, so sharing costs nothing.
+- `new york city` → `new york` (one-way). The catalogue stores the city as "New York" and Algolia requires every query word to match, so the extra word sent the search to the 30 restaurants with "City" in their name. **30 → 1,415.** Note `removeWordsIfNoResults` would *not* have fixed this — it only fires at zero results, and this returned 30.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
 
 ## Look and feel
