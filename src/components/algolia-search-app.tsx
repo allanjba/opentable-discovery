@@ -7,7 +7,7 @@ import { INDEX_NAME, searchClient } from "@/lib/algolia";
 import { priceSymbols } from "@/components/restaurant-hit";
 import { InfiniteResults } from "@/components/infinite-results";
 import { SearchAutocomplete } from "@/components/autocomplete";
-import { CoverageNotice, SortedByDistance } from "@/components/near-me";
+import { SortedByDistance } from "@/components/near-me";
 import { DemoPanel } from "@/components/demo-panel";
 import { useGeolocation, type Origin } from "@/lib/use-geolocation";
 
@@ -129,8 +129,6 @@ export function AlgoliaSearchApp({
               <ResultStats />
               <SortedByDistance origin={geo.origin} />
             </div>
-
-            <CoverageNotice origin={geo.origin} />
 
             <InfiniteResults />
           </section>
