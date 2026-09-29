@@ -72,6 +72,8 @@ Apply them by running `npm run data:settings`
 | synonyms                | 5 entries                                       | `bbq` 4 → 26 · `nyc` 15 → 1,415 · `sf` 5 → 264 · `nola` 4 → 94                                                |
 | `attributesToRetrieve`  | 23 → 9 attributes                               | ~34% smaller payload                                                                                          |
 | `attributesToHighlight` | 3 attributes                                    | `_highlightResult` had been 49% of the payload with nothing rendering it                                      |
+| `removeWordsIfNoResults` | `firstWords`                                   | `romantic italian` drops "romantic" → **874**; `lastWords` would drop "italian" and leave "romantic" → **0**   |
+| `advancedSyntax`        | `true` → **off**                                | `steak -house` meant "steak AND NOT house" (152) instead of "steak house" (77)                                 |
 
 `npm run search:compare` runs the same queries against both implementations —
 that is the tuning evidence, re-run after every change.

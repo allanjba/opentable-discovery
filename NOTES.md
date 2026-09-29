@@ -13,7 +13,7 @@
 
 ## Next — settings, in order
 
-1. `removeWordsIfNoResults: "lastWords"` — `pizza under 50` currently returns 0 because Algolia requires every query word to match.
+1. ~~`removeWordsIfNoResults`~~ — **done**, as `firstWords`. See below; the premise that it was unset turned out to be wrong.
 2. One Rule with `automaticFacetFilters` — turn a price/cuisine phrase into a real filter.
 3. Replicas for sorting — sorting is index-level, not a query param. Virtual replicas give Relevant Sort but are plan-gated.
 4. Tier 3: `renderingContent`, Query Suggestions index, Insights click/conversion events.
@@ -182,6 +182,27 @@ Pure UI, no setting: active filter chips + clear-all · ~~empty-state discovery 
 - Re-running also re-measured the counts against current settings — they had been built before `minWordSizefor1Typo: 5` and the synonyms, so they were stale. `Sushi` 106 → 104, `Barbecue` 26 → 27.
 - **Resolved:** `city` and `reserve_url` are now in `configure-index.mts` deliberately, `mobile_reserve_url` is not. Script and index agree again.
 - `city` was never decoration — the autocomplete renders `{neighborhood}, {city}`, so while it was missing from the list every dropdown row ended in a dangling comma. The dashboard edit fixed a bug that was already there.
+
+## Query behaviour — and the drift lesson that actually matters
+
+- **`setSettings` is a partial update.** Any key `configure-index.mts` does not name keeps whatever was last written to it, indefinitely and invisibly. "The script is the source of truth" was only ever true for the keys it mentions — which is why the audit missed these: it diffed the keys the script declares.
+- Found live and in neither the script nor these notes: **`removeWordsIfNoResults: "firstWords"`** and **`advancedSyntax: true`**. Both are now written down and owned.
+- Correction to an earlier note here: `pizza under 50` does **not** return 0. It returns 3, and 20 with words relaxed. `firstWords` was already doing the work this file claimed was missing.
+- **`firstWords`, not `lastWords`, and the direction matters.** English puts the modifier first and the head noun last, so dropping from the front keeps the thing being asked for: `romantic italian` → drops "romantic" → **874**. `lastWords` would drop "italian" and leave "romantic" → **0**.
+- Not a cure-all: `outdoor seating` is still 0, because neither word exists anywhere in the catalogue. That is a data gap, not something a query setting should paper over — it is now the no-results surface's job.
+- **`advancedSyntax` turned off**, deliberately, having been found on. It works — `steak -house` was **152** on and **77** off — and that difference is the reason. Off it means "steak AND house"; on it means "steak AND NOT house", the opposite set, from a string somebody typed meaning "steakhouse".
+- Checked the other way before deciding: unbalanced quotes, spaced hyphens and apostrophes (`"fish house`, `bar - b - q`, `mama's fish house`) are **identical** on and off, so the operators are the only behaviour given up. Nothing in the UI teaches the syntax, so no diner could discover it anyway.
+
+## Discovery surface
+
+- **Four rows, on different axes**: Trending · two cuisines · one neighbourhood. A fourth *cuisine* row would be more of the same axis; the point is more ways in, not more volume.
+- Neighbourhood density is there for it — within 50 km: NY Midtown West 80 / UES 67 · Denver Downtown-LoDo 70 / Boulder 27 · Miami South Beach 11.
+- The neighbourhood row **only renders when there is inventory nearby**. Unlike cuisine it has no sensible global fallback — "Midtown West" means nothing to someone browsing from a city we do not cover.
+- Its "See all" **sets the query** rather than a facet, matching the autocomplete's existing rule: `neighborhood` has no sidebar widget, so a facet refinement would be an invisible filter nobody could see or clear.
+- **Same rows appear below results** when a search returns nothing ("Nothing matched — but these are worth a look") or reaches the end ("Keep exploring").
+- Non-obvious: **you cannot put anything below an infinite list** — the sentinel keeps loading until `isLastPage`. So this surface is reachable exactly when the user has run out, and not a moment earlier. That is the design, not a limitation.
+- Two details that make the reuse work: each row's `<Configure>` sets **`query=""`**, because a child `<Index>` inherits the parent's query — without it "Popular Italian" below a failed search would search for the failed term too. And "See all" **clears** the query and replaces refinements rather than merging, since layering a cuisine onto the search you are escaping just fails again.
+- **Reversal:** trending used to read the root index's hits to save a query. That only works while the root query is empty, which stops being true the moment the rows appear below a search. It is now its own `<Index>` like the others — one extra query, batched into the same request, and one code path instead of two.
 
 ## Booking
 
