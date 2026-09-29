@@ -351,6 +351,28 @@ export function SearchAutocomplete({ origin }: { origin: Origin | null }) {
        * Keys are matched rather than hardcoded, so this survives the widget
        * renaming or adding a section.
        */
+      /*
+       * Detached mode off, which is not a styling preference — it is
+       * incompatible with server rendering.
+       *
+       * Below 680px the widget swaps the inline form for a full-screen search
+       * button and overlay. The server cannot evaluate a media query, so it
+       * always renders the form; the browser then renders the button, React
+       * finds <form> where it expected <div role="button">, and hydration
+       * fails. The whole search tree is discarded and rebuilt on the client —
+       * on a page whose point is that names, counts and facets arrive in the
+       * initial HTML.
+       *
+       * It also rendered a 295x295 magnifying glass, because the detached DOM
+       * is a separate set of ten class names that instantsearch.css would
+       * normally size and this project styles with Tailwind instead. Sizing
+       * those would have fixed the icon and left the hydration failure.
+       *
+       * "none" is not a valid media query, so matchMedia never matches it. The
+       * inline search bar is full-width and its panel already caps at 70vh with
+       * its own scroll, so it works at phone widths as-is.
+       */
+      detachedMediaQuery="none"
       showRecent={SHOW_RECENT}
       classNames={CLASS_NAMES}
       onSelect={onSelect}
