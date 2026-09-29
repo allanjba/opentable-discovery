@@ -3,7 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useInfiniteHits } from "react-instantsearch";
 import type { Restaurant } from "@/lib/types";
+import type { Origin } from "@/lib/origin";
+import type { Discovery } from "@/lib/discovery";
 import { RestaurantHit } from "@/components/restaurant-hit";
+import { KeepExploring } from "@/components/discovery-home";
 
 /**
  * The results list, loading more as the user reaches the bottom.
@@ -20,7 +23,13 @@ import { RestaurantHit } from "@/components/restaurant-hit";
 /** Start loading this far before the sentinel is actually visible. */
 const PRELOAD_MARGIN = "400px";
 
-export function InfiniteResults() {
+export function InfiniteResults({
+  origin,
+  discovery,
+}: {
+  origin: Origin | null;
+  discovery: Discovery;
+}) {
   const { items, isLastPage, showMore } = useInfiniteHits<Restaurant>();
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -45,7 +54,19 @@ export function InfiniteResults() {
     // which fills the viewport and then stops.
   }, [isLastPage, showMore, items.length]);
 
-  if (items.length === 0) return <NoResults />;
+  // Nothing matched: the discovery rows are the way out, not a dead end.
+  if (items.length === 0) {
+    return (
+      <>
+        <NoResults />
+        <KeepExploring
+          title="Nothing matched — but these are worth a look"
+          origin={origin}
+          discovery={discovery}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -58,9 +79,22 @@ export function InfiniteResults() {
       </ol>
 
       {isLastPage ? (
-        <p className="mt-8 text-center text-sm text-grey-400">
-          That&apos;s everything.
-        </p>
+        <>
+          <p className="mt-8 text-center text-sm text-grey-400">
+            That&apos;s everything.
+          </p>
+          {/*
+            Reachable only here, and that is the design rather than a
+            limitation: an infinite list has no bottom until it is exhausted,
+            so anything placed below it is seen exactly when the user has run
+            out of results and not a moment earlier.
+          */}
+          <KeepExploring
+            title="Keep exploring"
+            origin={origin}
+            discovery={discovery}
+          />
+        </>
       ) : (
         <div ref={sentinel} aria-hidden className="h-px" />
       )}

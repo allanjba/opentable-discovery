@@ -15,7 +15,7 @@ import { SearchAutocomplete } from "@/components/autocomplete";
 import { SortedByDistance } from "@/components/near-me";
 import { DemoPanel } from "@/components/demo-panel";
 import { DiscoveryHome } from "@/components/discovery-home";
-import type { TopCuisines } from "@/lib/top-cuisines";
+import type { Discovery } from "@/lib/discovery";
 import { useGeolocation, type Origin } from "@/lib/use-geolocation";
 
 /**
@@ -44,10 +44,10 @@ const PAGE_SIZE = 10;
 
 export function AlgoliaSearchApp({
   initialOrigin,
-  topCuisines,
+  discovery,
 }: {
   initialOrigin: Origin | null;
-  topCuisines: TopCuisines;
+  discovery: Discovery;
 }) {
   const geo = useGeolocation(initialOrigin);
 
@@ -146,7 +146,7 @@ export function AlgoliaSearchApp({
           </div>
 
           <section className="min-w-0 flex-1 p-6">
-            <ResultsArea origin={geo.origin} topCuisines={topCuisines} />
+            <ResultsArea origin={geo.origin} discovery={discovery} />
           </section>
         </div>
       </div>
@@ -167,10 +167,10 @@ export function AlgoliaSearchApp({
  */
 function ResultsArea({
   origin,
-  topCuisines,
+  discovery,
 }: {
   origin: Origin | null;
-  topCuisines: TopCuisines;
+  discovery: Discovery;
 }) {
   const { indexUiState } = useInstantSearch();
 
@@ -179,7 +179,7 @@ function ResultsArea({
     !indexUiState.query && !refinements.some((values) => values.length > 0);
 
   if (browsing) {
-    return <DiscoveryHome origin={origin} topCuisines={topCuisines} />;
+    return <DiscoveryHome origin={origin} discovery={discovery} />;
   }
 
   return (
@@ -189,7 +189,7 @@ function ResultsArea({
         <SortedByDistance origin={origin} />
       </div>
 
-      <InfiniteResults />
+      <InfiniteResults origin={origin} discovery={discovery} />
     </>
   );
 }
