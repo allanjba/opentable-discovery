@@ -201,8 +201,26 @@ const isLocation = (item: SuggestionItem): item is Hit<LocationSuggestion> =>
 const isRestaurant = (item: SuggestionItem): item is Hit<Restaurant> =>
   "name" in item;
 
-/** The text a suggestion puts in the search box when chosen. */
-function queryFor(item: SuggestionItem): string {
+/**
+ * A previously submitted term, as the widget stores it.
+ *
+ * Deliberately not part of SuggestionItem: a recent search is not a hit from
+ * any index, it is a string the widget kept in localStorage.
+ */
+type RecentItem = { query: string };
+
+/**
+ * The text a row puts in the search box when chosen.
+ *
+ * The recent-search branch is the one that was missing, and the failure was
+ * quiet in a way worth remembering. A recent item carries neither `name` nor
+ * `label`, so it fell through to "" — clicking your own last search cleared the
+ * box instead of re-running it. Worse, the widget records whatever gets
+ * submitted, so the empty string was then saved as a recent search: every click
+ * bred another blank row in the list.
+ */
+function queryFor(item: SuggestionItem | RecentItem): string {
+  if ("query" in item) return item.query;
   if (isRestaurant(item)) return item.name;
   return "label" in item ? item.label : "";
 }
@@ -320,7 +338,11 @@ export function SearchAutocomplete({ origin }: { origin: Origin | null }) {
           // Supplying onSelect replaces the widget's own handler rather than
           // running alongside it — which is why it hands you setQuery. Omit
           // this call and choosing a suggestion silently does nothing.
-          params.setQuery(queryFor(params.item));
+          const query = queryFor(params.item);
+          // Never set an empty query. Any row shape queryFor does not recognise
+          // would otherwise wipe the search box and save a blank recent search,
+          // which is exactly how the recent-search bug propagated itself.
+          if (query) params.setQuery(query);
           closePanel();
         }, [closePanel]);
 
@@ -521,6 +543,11 @@ function RecentRow({
   onSelect: () => void;
   onRemoveRecentSearch?: () => void;
 }) {
+  // Defensive, for history poisoned before the queryFor fix: a blank row is
+  // already saved in the localStorage of anyone who clicked a recent search
+  // while the bug was live, and it would sit there looking broken.
+  if (!item.query.trim()) return null;
+
   return (
     <div className="group flex w-full items-baseline gap-2 px-5 py-2 text-left hover:bg-grey-100">
       <button
