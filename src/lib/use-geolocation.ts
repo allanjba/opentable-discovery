@@ -1,30 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { ORIGIN_COOKIE, type Origin } from "@/lib/origin";
 
-/**
- * The user's search origin, when they have asked for one.
- *
- * Three ways we might know it, in increasing order of precision:
- *
- *   ip       from the request headers, before the page renders — see ip-origin.ts
- *   preset   a city chosen in the demo panel
- *   browser  the Geolocation API, asked for explicitly
- *
- * Not Algolia's `aroundLatLngViaIP`: `/` is server-rendered, and Algolia's docs
- * are explicit that a server-side request geolocates to the *server* unless you
- * forward X-Forwarded-For. Reading Vercel's headers ourselves gets the same
- * answer without that trap, and lets us keep the value.
- *
- * `source` is kept because "we guessed from your IP" and "you told us" mean
- * different things when the results look wrong.
- */
-export type Origin = {
-  lat: number;
-  lng: number;
-  label: string;
-  source: "browser" | "preset" | "ip";
-};
+export type { Origin };
+export { ORIGIN_COOKIE };
 
 export type GeoStatus = "off" | "requesting" | "on" | "denied" | "unavailable";
 
@@ -36,8 +16,7 @@ export const PRESETS: Omit<Origin, "source">[] = [
   { label: "Miami", lat: 25.7617, lng: -80.1918 },
 ];
 
-/** Where an explicit choice is remembered between visits. */
-const STORAGE_KEY = "opentable-discovery-origin";
+const ONE_YEAR = 60 * 60 * 24 * 365;
 
 export function useGeolocation(initialOrigin: Origin | null = null) {
   const [status, setStatus] = useState<GeoStatus>(initialOrigin ? "on" : "off");
@@ -52,45 +31,16 @@ export function useGeolocation(initialOrigin: Origin | null = null) {
    */
   const setOrigin = useCallback((next: Origin | null) => {
     setOriginState(next);
-    try {
-      if (next && next.source !== "ip") {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } else {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
-    } catch {
-      // Private browsing, blocked storage — persistence is a convenience, not
-      // a requirement, and losing it should not break the search.
-    }
-  }, []);
 
-  /**
-   * A remembered choice overrides the IP guess, once, on mount.
-   *
-   * This cannot be read during the first render: the server has no localStorage
-   * and the markup would not match. So it happens after hydration, and does
-   * cause one swap — but only for someone who deliberately set a location, and
-   * only to give them what they asked for. The common case, an IP origin from
-   * the server, paints correctly the first time.
-   */
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
+    const value =
+      next && next.source !== "ip"
+        ? `${encodeURIComponent(JSON.stringify(next))};max-age=${ONE_YEAR}`
+        : ";max-age=0";
 
-      const parsed = JSON.parse(stored) as Origin;
-      if (Number.isFinite(parsed?.lat) && Number.isFinite(parsed?.lng)) {
-        /* eslint-disable react-hooks/set-state-in-effect -- reading a
-           browser-only value after mount is exactly what this has to be: the
-           server has no localStorage, so doing it during render would make the
-           markup disagree with the HTML and break hydration. It runs once. */
-        setOriginState(parsed);
-        setStatus("on");
-        /* eslint-enable react-hooks/set-state-in-effect */
-      }
-    } catch {
-      // Unreadable or malformed — fall back to whatever the server gave us.
-    }
+    // SameSite=Lax because this is only ever read on a top-level navigation,
+    // and there is nothing sensitive in it — a rounded pair of coordinates the
+    // visitor chose themselves.
+    document.cookie = `${ORIGIN_COOKIE}=${value};path=/;SameSite=Lax`;
   }, []);
 
   const request = useCallback(() => {

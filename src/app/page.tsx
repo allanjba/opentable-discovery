@@ -1,5 +1,5 @@
 import { AlgoliaSearchApp } from "@/components/algolia-search-app";
-import { ipOrigin } from "@/lib/ip-origin";
+import { resolveOrigin } from "@/lib/ip-origin";
 
 /**
  * The search origin is resolved on the server so the first paint is already
@@ -8,7 +8,7 @@ import { ipOrigin } from "@/lib/ip-origin";
 export default async function Home() {
   return (
     <main className="flex-1">
-      <AlgoliaSearchApp initialOrigin={await ipOrigin()} />
+      <AlgoliaSearchApp initialOrigin={await resolveOrigin()} />
     </main>
   );
 }
