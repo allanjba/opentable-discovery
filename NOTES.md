@@ -30,7 +30,7 @@ Deliberately NOT doing: NeuralSearch, AI Ranking, Personalization, Dynamic Re-ra
 - ~~"Near me"~~ — done, opt-in distance search
 - ~~Autocomplete~~ — done, InstantSearch `<Autocomplete>` over three indices. A Query Suggestions index would add a "popular searches" section, but it's built from analytics we don't have.
 
-Pure UI, no setting: active filter chips + clear-all · empty-state discovery surface · replace "in 0.002 seconds" with something a diner cares about · responsive/mobile.
+Pure UI, no setting: active filter chips + clear-all · ~~empty-state discovery surface~~ (done) · replace "in 0.002 seconds" with something a diner cares about · responsive/mobile.
 
 ## Known issues
 
@@ -165,7 +165,8 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - `rootMargin: 400px` starts the next page before the sentinel is actually visible.
 - Ceiling: `paginationLimitedTo` defaults to **1,000** hits and Algolia warns that raising it slows search. It degrades gracefully — `isLastPage` just goes true there.
 - **One page size (10) everywhere.** The 3-result browse teaser could not survive infinite scroll: the sentinel is on screen at first paint, so a second page loads before anyone sees three. Keeping it only meant 5 round trips for 15 results.
-- Search bar and sidebar are `sticky`, rather than an inner scroll container. One scrollbar, the observer keeps its default viewport root, and no nested-scroll behaviour to go wrong on touch. `self-start` on the sidebar matters — a flex child stretches to the row height by default, and a full-height element has nothing to stick to. Sticky is `sm:`-only, so mobile keeps normal flow.
+- Search bar and sidebar are `sticky`, rather than an inner scroll container. One scrollbar, the observer keeps its default viewport root, and no nested-scroll behaviour to go wrong on touch. Sticky is `sm:`-only, so mobile keeps normal flow.
+- The sidebar is **two** elements, because the divider and the sticking want opposite things from one box. A flex child stretches to the row height, which is what draws `border-r` all the way down — but a full-height element has nothing to stick to. `self-start` fixed the sticking and collapsed the box, so the border stopped partway down the page. Now a stretched wrapper owns the border and the sticky aside sits inside it. Verified on a long results page: wrapper and results column both 2,286px, aside still pinned at 104px while scrolled to 598.
 - Also fixed in passing: a real no-results state (the InstantSearch migration had dropped it) and "1 **results** found".
 - **The autocomplete's Restaurants section is distance-aware too.** Each index in `<Autocomplete>` has its own `searchParameters` and does **not** inherit the page's `<Configure>`, so the geo params are passed explicitly — better anyway, since the dropdown can be tuned separately.
 - Same query, different origin: `steak` from Denver offers Prime Steakhouse, **Ruth's Chris - Denver**, Morton's - Denver, LoHi Steakbar. From New York: Bobby Van's, Liberty Prime, Staghorn, Frankie & Johnnie's. That Ruth's Chris line is the brief's third pain point — *"chains have multiple locations… hard to identify the correct one"* — answered in the dropdown, before the search even runs.
@@ -174,6 +175,44 @@ Pure UI, no setting: active filter chips + clear-all · empty-state discovery su
 - Recent searches use the widget's built-in `showRecent` (localStorage, dedupe, per-row remove) rather than a hand-rolled list. Its stock row draws an unsized SVG clock that fills the panel without `instantsearch.css`, so the row is ours.
 - **`<Autocomplete>` resets its own input whenever its parent re-renders.** Holding the typed value in `useState` destroyed it on the first keystroke — headers switched correctly while the box went blank. The value lives in a small external store instead; only the header and panel layout subscribe, and the component holding the widget never re-renders. Every prop it receives is referentially stable for the same reason.
 - Client uses `algoliasearch/lite` (search-only, smaller bundle); its method is `searchForHits`, not `searchSingleIndex`.
+- **Settings drift, second occurrence — and this one shipped a broken feature.** Allan spotted the Food Type section looking wrong. All three indices had picked up one identical restaurant-shaped `attributesToRetrieve` (`city, food_type, image_url, mobile_reserve_url, name, neighborhood, price, reserve_url, reviews_count, stars_count`). None of those fields exist on a `locations` or `cuisines` record, so both indices returned `{objectID}` and nothing else.
+- It failed **silently**: `LocationRow` and `CuisineRow` guard on the shape and return an empty fragment, so the headers rendered with no rows instead of throwing. Worth knowing that a defensive guard turned a crash into an invisible bug — the section looked empty, which reads as "no matches".
+- The build script was never wrong. `settingsFor(["label","kind","restaurant_count"])` is right there at the bottom of `build-suggest-indices.mts`; the live index had simply been overwritten since the last run. `npm run data:suggest` restored it.
+- The signature to recognise: **all three indices carrying the same list** is a dashboard action applied across indices, not a script. A script writes one index at a time with its own list.
+- Re-running also re-measured the counts against current settings — they had been built before `minWordSizefor1Typo: 5` and the synonyms, so they were stale. `Sushi` 106 → 104, `Barbecue` 26 → 27.
+- **Resolved:** `city` and `reserve_url` are now in `configure-index.mts` deliberately, `mobile_reserve_url` is not. Script and index agree again.
+- `city` was never decoration — the autocomplete renders `{neighborhood}, {city}`, so while it was missing from the list every dropdown row ended in a dangling comma. The dashboard edit fixed a bug that was already there.
+
+## Booking
+
+- **The whole card is the link**, both the wide result card and the compact landing card. No "Reserve" button: a result card has one obvious action, and a button beside it means two tap targets competing for the same intent — on a phone the card is what a thumb lands on anyway.
+- `target="_blank"` + `rel="noopener noreferrer"`. This leaves the demo, and losing a search you have just set up to an outbound click mid-walkthrough is not recoverable.
+- Hover: title to `text-brand`, image gains a shadow, both transitioned. Focus-visible ring for keyboard, matching the search input's idiom.
+- All 5,000 records have a unique `reserve_url`, so there is no missing-link state to design around. Verified 9/9 landing cards and 10/10 result cards carry a real `rid`.
+- Small trade: the title's search highlight and the hover colour are the same brand blue, so while hovering you lose the highlighted-substring distinction. Acceptable — hover is signalling "this is clickable", which is the more useful message at that moment.
+- Minor, not fixed: the source URLs are `http://`, so each click takes a redirect to https. It is in the source data; upgrading belongs in `clean.mts` if it is worth doing.
+
+- **Discovery landing** before any search: three rows of three — Trending near you, plus two cuisines — instead of a flat list of 5,000. Compact card for the rows, the wide card stays for results.
+- Shows when there is no query **and** no active facet. Query alone was wrong: picking a cuisine with an empty box left the landing up, ignoring the filter just set.
+- Each cuisine row is its own `<Index>` scope on the same index. InstantSearch batches them — switching city is **1 HTTP call** for all three rows.
+- A fresh landing load makes **zero** browser requests to Algolia; `InstantSearchNext` renders the rows server-side. (First measurement said 1 — the regex matched a Next chunk named `algoliasearch-helper.js`. A filename with the vendor's name is not a request to the vendor.)
+- **Cuisine rows come from local facet counts, not a hardcoded pair.** The tempting shortcut — read them off the page's own facets — is a trap: `aroundRadius: "all"` sorts without filtering, so those counts are the global ones. Localising needs a bounded radius and a second query.
+- Worth it, because the order inverts. Within 50 km — **NY** Italian 260 / American 194 · **Denver** American 43 / Contemporary American 30 · **SF** Italian 38 / American 25 · **Miami** Italian 12 / Seafood 6 · **SLC** zero. Nationally American leads; locally Italian usually does.
+- 50 km not 25: NY 895→1,114, Miami 37→50, and neither stops being "near you".
+- Labels are tiered so nothing claims to be local that isn't — "Popular Italian near you" only with inventory nearby, else "Popular Italian" / "Popular right now". Same mistake the coverage banner made, caught before repeating it.
+- `router.refresh()` on every origin change. The chosen cuisines are **server** state and the panel's origin is **client** state, so switching to Denver updated every restaurant while the headings still read New York's order. One line, in the one function all three origin paths funnel through.
+- "See all Italian →" applies a real refinement, not a text search. `useInstantSearch` must be called **above** the row's `<Index>` or it refines the row's private scope and nothing happens.
+- Known: a restaurant can appear in two rows where local inventory is thin (Miami, 50 within 50 km). Dedupe would mean serialising the three queries — not worth trading the single batched request.
+- Rows are **2-up on a phone, 3-up from `sm`**, with the third card hidden below `sm` rather than wrapping. One-up made each card a full-width 3:2 image — three filled 2.5 screens and the second row was unreachable. A lone card under a pair reads as a layout bug; "See all" covers the rest.
+
+## Mobile
+
+- **Detached autocomplete mode is off** (`detachedMediaQuery="none"`). Below 680px the widget swaps its inline form for a full-screen button + overlay, and that broke twice over.
+- The detached DOM is ten separate class names that `instantsearch.css` would size and we style with Tailwind, so the search icon rendered at **295×295**. Same root cause as the recent-searches clock.
+- Worse, it **failed hydration on every mobile load**: the server can't evaluate a media query so it renders the form, the client renders the button, React finds `<form>` where it expected `<div role="button">` and rebuilds the whole search tree. On a page whose point is SSR, mobile was throwing the HTML away.
+- Styling the ten class names would have fixed the icon and left the hydration failure. One prop fixes both. What it costs is the full-screen overlay — worth saying why: **detached mode is structurally incompatible with SSR**, since the decision depends on a viewport the server cannot see.
+- Verified server-vs-client, not by console: server HTML has `ais-AutocompleteForm` ×1 and the detached button ×0, client DOM at 375px matches, no oversized SVG anywhere, panel still opens and highlights.
+- Lesson: **a console buffer is not an observation.** It kept replaying the pre-fix error after the fix. "Is this still happening" is answered by comparing what the server sent with what the client built.
 
 ## Look and feel
 
