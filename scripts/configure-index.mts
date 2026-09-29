@@ -8,7 +8,7 @@
  * copied here the next run of this script would have silently reverted them —
  * which is the exact drift having one source of truth is meant to prevent.
  *
- * Still at Algolia's defaults, on purpose: rules, removeWordsIfNoResults.
+ * Still at Algolia's defaults, on purpose: rules.
  *
  * Run with `npm run data:settings`.
  */
@@ -221,6 +221,49 @@ const SETTINGS: IndexSettings = {
    * audit — in a real engagement this is what you A/B against traffic.
    */
   minWordSizefor1Typo: 5,
+
+  /**
+   * When a query returns nothing, drop words from the FRONT and retry.
+   *
+   * Found live and not in this file, which is its own lesson: setSettings is a
+   * partial update, so any key this script does not name keeps whatever was
+   * last written to it — indefinitely, and invisibly. "The script is the
+   * source of truth" only holds for the keys it mentions. It is written down
+   * here now so it can be changed on purpose.
+   *
+   * firstWords rather than lastWords, and the direction matters. English puts
+   * the modifier first and the head noun last, so dropping from the front
+   * keeps the thing being asked for:
+   *
+   *   "romantic italian"   firstWords -> italian  874    lastWords -> romantic  0
+   *   "pizza under 50"     firstWords -> 3 then 20
+   *
+   * It is not a cure-all — "outdoor seating" still returns 0, because neither
+   * word appears anywhere in this catalogue. That is a real gap in the data,
+   * not something a query setting should paper over.
+   */
+  removeWordsIfNoResults: "firstWords",
+
+  /**
+   * Off, deliberately, having been found on.
+   *
+   * It enables phrase queries ("fish house") and the prohibit operator
+   * (-word), and both demonstrably work: `steak -house` returns 152 with it on
+   * and 77 with it off. That difference is the reason to turn it off. Off, the
+   * query means "steak AND house". On, it means "steak AND NOT house" — the
+   * opposite result set, from a string somebody almost certainly typed meaning
+   * "steakhouse".
+   *
+   * Nothing in this UI teaches the syntax: no placeholder hint, no help text,
+   * no examples. A capability no diner can discover is not a feature, and this
+   * one silently reinterprets a plausible typo. Checked the other way too —
+   * unbalanced quotes, spaced hyphens and apostrophes all behave identically
+   * on and off, so this is the only behaviour being given up.
+   *
+   * If OpenTable ever wants operators, this is one flag. It should arrive with
+   * an interface that tells people they exist.
+   */
+  advancedSyntax: false,
 
   /**
    * Unset, Algolia highlights every searchable attribute, and _highlightResult
