@@ -13,7 +13,7 @@ import { InfiniteResults } from "@/components/infinite-results";
 import { SearchAutocomplete } from "@/components/autocomplete";
 import { CoverageNotice, SortedByDistance } from "@/components/near-me";
 import { DemoPanel } from "@/components/demo-panel";
-import { useGeolocation } from "@/lib/use-geolocation";
+import { useGeolocation, type Origin } from "@/lib/use-geolocation";
 
 /**
  * The search experience, built on React InstantSearch.
@@ -39,8 +39,12 @@ import { useGeolocation } from "@/lib/use-geolocation";
  */
 const PAGE_SIZE = 10;
 
-export function AlgoliaSearchApp() {
-  const geo = useGeolocation();
+export function AlgoliaSearchApp({
+  initialOrigin,
+}: {
+  initialOrigin: Origin | null;
+}) {
+  const geo = useGeolocation(initialOrigin);
 
   return (
     <InstantSearchNext
