@@ -1,6 +1,11 @@
 "use client";
 
-import { Configure, RefinementList, useStats } from "react-instantsearch";
+import {
+  Configure,
+  RefinementList,
+  useInstantSearch,
+  useStats,
+} from "react-instantsearch";
 import { InstantSearchNext } from "react-instantsearch-nextjs";
 import type { RefinementListProps } from "react-instantsearch";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
@@ -9,6 +14,8 @@ import { InfiniteResults } from "@/components/infinite-results";
 import { SearchAutocomplete } from "@/components/autocomplete";
 import { SortedByDistance } from "@/components/near-me";
 import { DemoPanel } from "@/components/demo-panel";
+import { DiscoveryHome } from "@/components/discovery-home";
+import type { TopCuisines } from "@/lib/top-cuisines";
 import { useGeolocation, type Origin } from "@/lib/use-geolocation";
 
 /**
@@ -37,8 +44,10 @@ const PAGE_SIZE = 10;
 
 export function AlgoliaSearchApp({
   initialOrigin,
+  topCuisines,
 }: {
   initialOrigin: Origin | null;
+  topCuisines: TopCuisines;
 }) {
   const geo = useGeolocation(initialOrigin);
 
@@ -100,41 +109,88 @@ export function AlgoliaSearchApp({
 
         <div className="flex flex-col bg-surface shadow-md sm:flex-row">
           {/*
-            `self-start` matters: a flex child stretches to the row height by
-            default, and a full-height element has nothing to stick to. The
-            offset clears the search bar, and the facet list scrolls internally
-            if it ever outgrows the viewport.
+            Two elements, because the divider and the sticking want opposite
+            things from the same box.
+
+            A flex child stretches to the row height by default, which is what
+            draws the border all the way down — but a full-height element has
+            nothing to stick to, so putting `sticky` on it does nothing. Giving
+            it `self-start` fixes the sticking and collapses the box to the
+            height of the facets, leaving the border stopping partway down the
+            page.
+
+            So the wrapper stays stretched and owns the border, and the sticky
+            aside sits inside it. The aside now sticks within a container that
+            runs the full height of the results, which is also the correct place
+            for it to stop.
           */}
-          <aside className="w-full border-grey-200 p-6 sm:sticky sm:top-[6.5rem] sm:max-h-[calc(100vh-6.5rem)] sm:w-64 sm:shrink-0 sm:self-start sm:overflow-y-auto sm:border-r">
-            <Facet attribute="cuisines" label="Cuisine/Food Type" limit={7} />
-            <Facet attribute="dining_style" label="Dining Style" limit={10} />
-            <Facet
-              attribute="price"
-              label="Price"
-              limit={10}
-              // Price tiers are 2, 3 and 4 — order by the tier, not by
-              // popularity, and render them the way their own filter does.
-              sortBy={["name:asc"]}
-              transformItems={(items) =>
-                items.map((item) => ({
-                  ...item,
-                  label: priceSymbols(item.value),
-                }))
-              }
-            />
-          </aside>
+          <div className="w-full sm:w-64 sm:shrink-0 sm:border-r sm:border-grey-200">
+            <aside className="p-6 sm:sticky sm:top-[6.5rem] sm:max-h-[calc(100vh-6.5rem)] sm:overflow-y-auto">
+              <Facet attribute="cuisines" label="Cuisine/Food Type" limit={7} />
+              <Facet attribute="dining_style" label="Dining Style" limit={10} />
+              <Facet
+                attribute="price"
+                label="Price"
+                limit={10}
+                // Price tiers are 2, 3 and 4 — order by the tier, not by
+                // popularity, and render them the way their own filter does.
+                sortBy={["name:asc"]}
+                transformItems={(items) =>
+                  items.map((item) => ({
+                    ...item,
+                    label: priceSymbols(item.value),
+                  }))
+                }
+              />
+            </aside>
+          </div>
 
           <section className="min-w-0 flex-1 p-6">
-            <div className="mb-6 flex flex-wrap items-baseline gap-2 border-b border-grey-200 pb-3">
-              <ResultStats />
-              <SortedByDistance origin={geo.origin} />
-            </div>
-
-            <InfiniteResults />
+            <ResultsArea origin={geo.origin} topCuisines={topCuisines} />
           </section>
         </div>
       </div>
     </InstantSearchNext>
+  );
+}
+
+/**
+ * Chooses between the discovery landing and the results list.
+ *
+ * "Browsing" means no query *and* no active facet — both have to be checked.
+ * Query alone was the first version and it was wrong: picking a cuisine with an
+ * empty search box left the landing on screen, silently ignoring the filter the
+ * user had just set.
+ *
+ * The stats line belongs to the results view only. "5,000 results found" above a
+ * curated landing page describes a list nobody asked for.
+ */
+function ResultsArea({
+  origin,
+  topCuisines,
+}: {
+  origin: Origin | null;
+  topCuisines: TopCuisines;
+}) {
+  const { indexUiState } = useInstantSearch();
+
+  const refinements = Object.values(indexUiState.refinementList ?? {});
+  const browsing =
+    !indexUiState.query && !refinements.some((values) => values.length > 0);
+
+  if (browsing) {
+    return <DiscoveryHome origin={origin} topCuisines={topCuisines} />;
+  }
+
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-baseline gap-2 border-b border-grey-200 pb-3">
+        <ResultStats />
+        <SortedByDistance origin={origin} />
+      </div>
+
+      <InfiniteResults />
+    </>
   );
 }
 

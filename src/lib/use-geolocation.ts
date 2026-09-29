@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { ORIGIN_COOKIE, type Origin } from "@/lib/origin";
 
@@ -19,6 +20,7 @@ export const PRESETS: Omit<Origin, "source">[] = [
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
 export function useGeolocation(initialOrigin: Origin | null = null) {
+  const router = useRouter();
   const [status, setStatus] = useState<GeoStatus>(initialOrigin ? "on" : "off");
   const [origin, setOriginState] = useState<Origin | null>(initialOrigin);
 
@@ -41,7 +43,17 @@ export function useGeolocation(initialOrigin: Origin | null = null) {
     // and there is nothing sensitive in it — a rounded pair of coordinates the
     // visitor chose themselves.
     document.cookie = `${ORIGIN_COOKIE}=${value};path=/;SameSite=Lax`;
-  }, []);
+
+    // Not everything about the page is client state. The landing page's cuisine
+    // rows are chosen on the server from the inventory near this origin, so
+    // changing the origin has to re-run the server component or the rows keep
+    // describing the old city — New York's "Italian, then American" still shown
+    // after a switch to Denver, whose local order is American first.
+    //
+    // refresh() re-runs it with the cookie just written, and preserves client
+    // state while it does, so the search itself is undisturbed.
+    router.refresh();
+  }, [router]);
 
   const request = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
