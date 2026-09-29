@@ -138,25 +138,42 @@ const SETTINGS: IndexSettings = {
   ],
 
   /**
-   * Only what the result card renders. objectID is always returned.
+   * Only what the UI renders. objectID is always returned.
    *
    * Unset, every hit carries all 23 attributes — four URLs, the geo point, the
    * full address, payment options — about 1.4 KB per hit, most of it never
    * read. This is a display concern, not a search one: an attribute stays
    * searchable and facetable whether or not it is returned.
    *
-   * reserve_url is deliberately absent. It is the obvious next UI addition,
-   * and it should be added back deliberately when the booking link exists
-   * rather than carried speculatively now.
+   * Two of these were added from the dashboard first and are written here
+   * second, which is the wrong order and is why the list is now annotated. A
+   * setting that only exists in the dashboard survives exactly until the next
+   * run of this script.
+   *
+   * `city` is not decoration: the autocomplete's restaurant rows render
+   * "{neighborhood}, {city}", so without it every row in that dropdown ended
+   * with a dangling comma. It was missing from this list while the UI depended
+   * on it — a real bug that the dashboard edit happened to fix.
+   *
+   * `reserve_url` is here because the cards link to it. Every one of the 5,000
+   * records has a unique one, so there is no empty-state to design around. It
+   * had been left out on the grounds that it should arrive with the booking
+   * link rather than before it; the booking link is now here.
+   *
+   * `mobile_reserve_url` stays out. It is a second URL to the same
+   * destination and nothing picks between them; it belongs with device-aware
+   * linking, if that is ever wanted.
    */
   attributesToRetrieve: [
     "name",
     "food_type",
     "neighborhood",
+    "city",
     "price",
     "stars_count",
     "reviews_count",
     "image_url",
+    "reserve_url",
   ],
 
   // Facet on `cuisines`, not `food_type`. The raw field packs several concepts

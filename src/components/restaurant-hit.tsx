@@ -25,10 +25,24 @@ export function RestaurantHit({ hit }: { hit: Hit<Restaurant> }) {
   const km = distanceKm(hit);
 
   return (
-    <div className="flex gap-4">
+    /*
+      The whole card is the booking link rather than a "Reserve" button beside
+      one. A result card has a single obvious action, so giving it a button
+      means two tap targets competing for the same intent — and on a phone the
+      card is the thing a thumb actually lands on.
+
+      New tab because this leaves the demo. During a live walkthrough, losing
+      the search you just set up to an outbound click is not recoverable.
+    */
+    <a
+      href={hit.reserve_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex gap-4 outline-none focus-visible:ring-2 focus-visible:ring-brand"
+    >
       {/* fill + object-cover crops whatever aspect ratio the source has into a
           fixed 110x86 box, centred */}
-      <div className="relative h-[86px] w-[110px] shrink-0 overflow-hidden bg-grey-100">
+      <div className="relative h-[86px] w-[110px] shrink-0 overflow-hidden bg-grey-100 transition-shadow group-hover:shadow-md">
         <Image
           src={hit.image_url}
           alt={hit.name}
@@ -39,7 +53,7 @@ export function RestaurantHit({ hit }: { hit: Hit<Restaurant> }) {
       </div>
 
       <div className="min-w-0">
-        <h3 className="truncate text-lg font-semibold text-ink">
+        <h3 className="truncate text-lg font-semibold text-ink transition-colors group-hover:text-brand">
           <Highlight hit={hit} attribute="name" classNames={HIGHLIGHT} />
         </h3>
 
@@ -67,7 +81,7 @@ export function RestaurantHit({ hit }: { hit: Hit<Restaurant> }) {
           )}
         </p>
       </div>
-    </div>
+    </a>
   );
 }
 
