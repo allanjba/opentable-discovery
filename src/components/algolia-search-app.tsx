@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Configure,
-  RefinementList,
-  useStats,
-} from "react-instantsearch";
+import { Configure, RefinementList, useStats } from "react-instantsearch";
 import { InstantSearchNext } from "react-instantsearch-nextjs";
 import type { RefinementListProps } from "react-instantsearch";
 import { INDEX_NAME, searchClient } from "@/lib/algolia";
@@ -52,7 +48,10 @@ export function AlgoliaSearchApp({
       searchClient={searchClient}
       // `future` opts into the v8 behaviour now so the upgrade is not a
       // breaking change later; both flags are the v8 defaults.
-      future={{ preserveSharedStateOnUnmount: true, persistHierarchicalRootCount: true }}
+      future={{
+        preserveSharedStateOnUnmount: true,
+        persistHierarchicalRootCount: true,
+      }}
     >
       <DemoPanel
         status={geo.status}
@@ -117,7 +116,10 @@ export function AlgoliaSearchApp({
               // popularity, and render them the way their own filter does.
               sortBy={["name:asc"]}
               transformItems={(items) =>
-                items.map((item) => ({ ...item, label: priceSymbols(item.value) }))
+                items.map((item) => ({
+                  ...item,
+                  label: priceSymbols(item.value),
+                }))
               }
             />
           </aside>
@@ -202,4 +204,3 @@ function ResultStats() {
     </>
   );
 }
-
