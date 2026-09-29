@@ -79,22 +79,18 @@ export function InfiniteResults({
       </ol>
 
       {isLastPage ? (
-        <>
-          <p className="mt-8 text-center text-sm text-grey-400">
-            That&apos;s everything.
-          </p>
-          {/*
-            Reachable only here, and that is the design rather than a
-            limitation: an infinite list has no bottom until it is exhausted,
-            so anything placed below it is seen exactly when the user has run
-            out of results and not a moment earlier.
-          */}
-          <KeepExploring
-            title="Keep exploring"
-            origin={origin}
-            discovery={discovery}
-          />
-        </>
+        /*
+          Reachable only here, and that is the design rather than a limitation:
+          an infinite list has no bottom until it is exhausted, so anything
+          placed below it is seen exactly when the user has run out of results
+          and not a moment earlier.
+
+          No heading and no rule above it. The list stopping is its own
+          announcement — saying "that's everything" and then immediately
+          offering more read as a contradiction, and each row below carries its
+          own title already.
+        */
+        <KeepExploring origin={origin} discovery={discovery} />
       ) : (
         <div ref={sentinel} aria-hidden className="h-px" />
       )}

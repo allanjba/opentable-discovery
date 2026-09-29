@@ -46,13 +46,21 @@ export function KeepExploring({
   title,
   ...props
 }: {
-  title: string;
+  /**
+   * Only set when the rows need explaining — after a search that found
+   * nothing. At the end of a full result list they need no introduction: the
+   * list has visibly stopped, and each row already carries its own heading, so
+   * a title above them was one label too many.
+   */
+  title?: string;
   origin: Origin | null;
   discovery: Discovery;
 }) {
   return (
-    <section className="mt-10 border-t border-grey-200 pt-8">
-      <h2 className="mb-6 text-lg font-semibold text-ink">{title}</h2>
+    <section className="mt-10">
+      {title && (
+        <h2 className="mb-6 text-lg font-semibold text-ink">{title}</h2>
+      )}
       <Rows {...props} scope="explore" />
     </section>
   );
