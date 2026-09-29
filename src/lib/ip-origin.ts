@@ -19,9 +19,7 @@ async function chosenOrigin(): Promise<Origin | null> {
 
   try {
     const parsed = JSON.parse(decodeURIComponent(value)) as Origin;
-    return Number.isFinite(parsed?.lat) && Number.isFinite(parsed?.lng)
-      ? parsed
-      : null;
+    return onEarth(parsed?.lat, parsed?.lng) ? parsed : null;
   } catch {
     // Someone else's cookie, or a half-written one. Fall through to the IP.
     return null;
@@ -74,4 +72,28 @@ function coordinate(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * A finite check is not enough, and the failure is worse than it sounds.
+ *
+ * Probed in production with a cookie of lat 999 / lng 999: Number.isFinite says
+ * true, so it was accepted and passed to Algolia as aroundLatLng. Algolia
+ * rejects the parameter, every query in the tree fails, and because each
+ * discovery row hides itself when it has no hits, the page renders with no
+ * rows at all — not wrong results, an empty page.
+ *
+ * The cookie is the visitor's own, so this is self-inflicted rather than an
+ * attack, but a value we write ourselves is still a value we should not trust
+ * on the way back in.
+ */
+function onEarth(lat: unknown, lng: unknown): boolean {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
 }
