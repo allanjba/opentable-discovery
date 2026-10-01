@@ -95,25 +95,68 @@
   100% { background-position: 0% 50%; }
 }
 
-.ai-gradient {
-  /*
-   * Two stops, not five. The earlier version pinned --brand at the midpoint,
-   * which put a visible kink across the middle of the button: a hard stop is a
-   * change of direction, and the eye finds it. A single ramp from dark to glow
-   * has nothing to catch on, and passes through roughly that same blue anyway.
-   *
-   * Interpolated `in oklab` because sRGB takes a dim, slightly muddy path
-   * between a deep blue and a cyan; oklab keeps the lightness even across the
-   * ramp, which is most of what "sharp" was describing.
-   */
-  background-image: linear-gradient(
+/*
+ * One definition, used by the button and by the chat frame, so the two cannot
+ * drift apart.
+ *
+ * Two stops, not five. An earlier version pinned --brand at the midpoint, which
+ * put a visible kink across the middle of the button: a hard stop is a change
+ * of direction, and the eye finds it. A single ramp has nothing to catch on,
+ * and passes through roughly that same blue anyway.
+ *
+ * Interpolated `in oklab` because sRGB takes a dim, slightly muddy path between
+ * a deep blue and a cyan; oklab keeps lightness even across the ramp.
+ *
+ * Palindromic and sized at 200%, so drifting the position out and back returns
+ * to exactly where it started — no seam.
+ */
+:root {
+  --ai-gradient-image: linear-gradient(
     115deg in oklab,
     var(--brand-dark) 0%,
-    var(--ai-glow) 45%,
-    var(--ai-glow) 55%,
+    var(--ai-glow) 50%,
     var(--brand-dark) 100%
   );
+}
+
+.ai-gradient {
+  background-image: var(--ai-gradient-image);
   background-size: 200% 100%;
+}
+
+/*
+ * The same gradient as a frame around the chat panel.
+ *
+ * `border` cannot take a gradient, so the ring is a pseudo-element that is
+ * masked: paint the gradient over the whole box, subtract the content box, and
+ * only the 2px frame survives. More robust than the two-background-layer trick,
+ * which would fight the widget for control of its own background.
+ *
+ * It drifts continuously rather than on hover — a panel has no natural hover,
+ * and this is the cue that what is inside is live.
+ */
+.ais-Chat {
+  position: relative;
+}
+
+.ais-Chat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background-image: var(--ai-gradient-image);
+  background-size: 200% 100%;
+  animation: ai-shimmer 12s ease-in-out infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .ai-gradient:hover {
@@ -125,7 +168,8 @@
 /* Someone who has asked the system for less movement should not get a looping
    background because they hovered a button. */
 @media (prefers-reduced-motion: reduce) {
-  .ai-gradient:hover {
+  .ai-gradient:hover,
+  .ais-Chat::before {
     animation: none;
   }
 }
