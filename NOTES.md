@@ -240,6 +240,20 @@ Pure UI, no setting: active filter chips + clear-all · ~~empty-state discovery 
 - Verified server-vs-client, not by console: server HTML has `ais-AutocompleteForm` ×1 and the detached button ×0, client DOM at 375px matches, no oversized SVG anywhere, panel still opens and highlights.
 - Lesson: **a console buffer is not an observation.** It kept replaying the pre-fix error after the fix. "Is this still happening" is answered by comparing what the server sent with what the client built.
 
+## AI agent (/ai) — built after submission
+
+- **Separate route on purpose.** `/` is the page that was submitted and graded and still behaves exactly as it did; `/ai` is a copy plus Algolia Agent Studio. The duplication is the point — this is an addition, not a revision of the work under review.
+- Agent built in the Agent Studio dashboard; the client side is `<Chat agentId>` from `react-instantsearch` 7.50, which already ships `Chat` / `ChatTrigger`.
+- Only `instantsearch.css/components/chat.css` is imported, not the whole stylesheet. It is component-scoped, so every other widget stays on Tailwind — which matters, since an unstyled InstantSearch component is what produced the 295×295 magnifier on mobile.
+- **The stock `ChatTrigger` is replaced by an "Ask AI" button inside the search bar.** `<Chat>` exposes a ref handle — `setOpen`, `setInput`, `sendMessage` — so the button opens the panel seeded with whatever was searched. Needs `disableTriggerValidation`, or the widget insists on a `ChatTrigger` or AI mode being present.
+- That handoff is the whole argument: **`romantic italian with outdoor seating` returns 0 in the keyword index** (`outdoor seating` matches nothing in the catalogue, and `firstWords` discards `romantic`), and the same words sent to the agent return 7 results. The gap is measured, not asserted.
+- Room for the button is made with arbitrary variants scoped to a wrapper (`[&_.ais-AutocompleteInput]:pr-32`), because the autocomplete's own class names live in a component shared with `/`.
+- **Location reaches the agent through `context`** — Agent Studio's channel for ambient session facts, sent as `messages[last].metadata.turnContext`, never rendered as a bubble, validated server-side as a flat `Record<string, string>`. Function form, so it re-reads on every send and follows the demo panel.
+- Sent: `city`, `latitude`, `longitude`, `location_source` (ip / preset / browser) and `nearby_inventory`. The last two are the honest ones — an IP guess deserves less confidence than a chosen location, and `nearby_inventory: "none"` stops the agent recommending restaurants 200 km away to someone the catalogue does not cover. Same rule as the "near you" row headings.
+- `interface_language` is also passed, as a deterministic fallback when a message is too short to infer a language from.
+- Chat empty state is a greeting plus three clickable starters rather than a blank box. They are chosen as arguments, not examples: one query the index returns 0 for, one open-ended intent with no keyword equivalent, and one that only works if the location context is arriving.
+- **Not done, deliberately:** the agent's system prompt is still close to the Agent Studio template, so it prints raw `single.aspx?rid=` URLs and re-lists in prose the restaurants the cards already show. The hour went into the integration rather than prompt tuning. Both are dashboard-side and neither is a code change.
+
 ## Look and feel
 
 - Kept their visual identity — palette, Open Sans, background tile — rather than restyling, so that when the demo sits next to their screenshot every visible difference is behaviour, not decoration.
