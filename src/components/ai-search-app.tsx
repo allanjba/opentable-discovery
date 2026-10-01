@@ -152,9 +152,7 @@ export function AiSearchApp({
       return (
         <div className="px-4 py-6">
           <p className="font-semibold text-ink">
-            {city
-              ? `Looking for somewhere in ${city}?`
-              : "What are you in the mood for?"}
+            {city ? `Looking for somewhere in ${city}?` : "What are you in the mood for?"}
           </p>
           <p className="mt-1 text-sm text-grey-500">
             Ask in your own words — including the things the filters cannot
@@ -167,7 +165,7 @@ export function AiSearchApp({
                 <button
                   type="button"
                   onClick={() => chat.current?.sendMessage({ text })}
-                  className="w-full cursor-pointer px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-grey-100"
+                  className="w-full cursor-pointer border border-grey-200 px-3 py-2 text-left text-sm text-ink transition-colors hover:border-brand hover:bg-grey-100"
                 >
                   {text}
                 </button>
@@ -406,13 +404,7 @@ function AskAiButton({
         chatRef.current?.setOpen(true);
         if (query) chatRef.current?.setInput(query);
       }}
-      /*
-        A gradient rather than a flat fill, because that is the visual language
-        people now read as "this is the AI one". The gradient itself and its
-        hover drift live in globals.css as `.ai-gradient` — background-position
-        needs keyframes, which Tailwind utilities cannot express inline.
-      */
-      className="ai-gradient absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-[filter] duration-200 hover:brightness-115 focus-visible:ring-2 focus-visible:ring-white"
+      className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 bg-brand px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-white"
       aria-label={query ? `Ask AI about "${query}"` : "Ask AI"}
     >
       <Sparkle />
@@ -424,13 +416,7 @@ function AskAiButton({
 /** Sized explicitly — an unsized SVG is how the mobile autocomplete broke. */
 function Sparkle() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 2l1.9 5.6L19.5 9.5 13.9 11.4 12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2z" />
       <path d="M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z" />
     </svg>
