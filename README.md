@@ -11,20 +11,10 @@ naive substring search, for a side-by-side.
 
 ## Changes after submission
 
-Everything below describes the submitted work, which lives at `/` and is
-unchanged.
+Changelog of work after submission,
 
 **[`/ai`](https://opentable-discovery.vercel.app/ai)** — a simple
-implementation of an Algolia Agent Studio assistant, added after submitting. It
-is the same page with a chat attached: an "Ask AI" button in the search bar
-opens the agent carrying whatever was searched, and the user's location is
-passed along as context.
-
-It exists to close a gap the submission measures but cannot serve. `romantic
-italian with outdoor seating` returns **0 results** in the keyword index — the
-catalogue records no ambiance or seating attributes — and the same words sent to
-the agent return 7. The agent's own prompt is still close to the Agent Studio
-template; the time went into the integration rather than tuning it.
+implementation of an Algolia Agent Studio assistant
 
 ---
 
@@ -82,17 +72,17 @@ Dashboard edits have caused some problems when playing around so having a
 source of truth helped during the process.
 Apply them by running `npm run data:settings`
 
-| Setting                 | Change                                          | Measured effect                                                                                               |
-| ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `customRanking`         | `desc(popularity_score)`, `desc(reviews_count)` | Ellen's Cafe (5.0★, **1 review**) went from #1 to #2,391                                                      |
-| `searchableAttributes`  | ordered, `name` **last**                        | `italian` returns restaurants that _serve_ Italian, not ones named "Italian"                                  |
-| `ranking`               | `exact` moved ahead of `attribute`              | `Union` #29 → #3; 37 of 39 test queries unchanged                                                             |
-| `minWordSizefor1Typo`   | 4 → 5                                           | `Acme` 1,605 → 3 · `Hilo` 252 → 1 · `Napa` 239 → 8, while `stakehouse` (423) and `restaurnt` (564) still work |
-| synonyms                | 5 entries                                       | `bbq` 4 → 26 · `nyc` 15 → 1,415 · `sf` 5 → 264 · `nola` 4 → 94                                                |
-| `attributesToRetrieve`  | 23 → 9 attributes                               | ~34% smaller payload                                                                                          |
-| `attributesToHighlight` | 3 attributes                                    | `_highlightResult` had been 49% of the payload with nothing rendering it                                      |
-| `removeWordsIfNoResults` | `firstWords`                                   | `romantic italian` drops "romantic" → **874**; `lastWords` would drop "italian" and leave "romantic" → **0**   |
-| `advancedSyntax`        | `true` → **off**                                | `steak -house` meant "steak AND NOT house" (152) instead of "steak house" (77)                                 |
+| Setting                  | Change                                          | Measured effect                                                                                               |
+| ------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `customRanking`          | `desc(popularity_score)`, `desc(reviews_count)` | Ellen's Cafe (5.0★, **1 review**) went from #1 to #2,391                                                      |
+| `searchableAttributes`   | ordered, `name` **last**                        | `italian` returns restaurants that _serve_ Italian, not ones named "Italian"                                  |
+| `ranking`                | `exact` moved ahead of `attribute`              | `Union` #29 → #3; 37 of 39 test queries unchanged                                                             |
+| `minWordSizefor1Typo`    | 4 → 5                                           | `Acme` 1,605 → 3 · `Hilo` 252 → 1 · `Napa` 239 → 8, while `stakehouse` (423) and `restaurnt` (564) still work |
+| synonyms                 | 5 entries                                       | `bbq` 4 → 26 · `nyc` 15 → 1,415 · `sf` 5 → 264 · `nola` 4 → 94                                                |
+| `attributesToRetrieve`   | 23 → 9 attributes                               | ~34% smaller payload                                                                                          |
+| `attributesToHighlight`  | 3 attributes                                    | `_highlightResult` had been 49% of the payload with nothing rendering it                                      |
+| `removeWordsIfNoResults` | `firstWords`                                    | `romantic italian` drops "romantic" → **874**; `lastWords` would drop "italian" and leave "romantic" → **0**  |
+| `advancedSyntax`         | `true` → **off**                                | `steak -house` meant "steak AND NOT house" (152) instead of "steak house" (77)                                |
 
 `npm run search:compare` runs the same queries against both implementations —
 that is the tuning evidence, re-run after every change.
