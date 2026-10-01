@@ -406,11 +406,11 @@ function AskAiButton({
       }}
       /*
         A gradient rather than a flat fill, because that is the visual language
-        people now read as "this is the AI one" — and brightness, not a second
-        gradient, on hover: background-image does not transition, so swapping
-        the stops would snap rather than ease.
+        people now read as "this is the AI one". The gradient itself and its
+        hover drift live in globals.css as `.ai-gradient` — background-position
+        needs keyframes, which Tailwind utilities cannot express inline.
       */
-      className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 bg-[linear-gradient(115deg,var(--brand-dark)_0%,var(--brand)_55%,var(--ai-glow)_100%)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-white"
+      className="ai-gradient absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-[filter] duration-200 hover:brightness-105 focus-visible:ring-2 focus-visible:ring-white"
       aria-label={query ? `Ask AI about "${query}"` : "Ask AI"}
     >
       <Sparkle />
