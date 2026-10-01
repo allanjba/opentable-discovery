@@ -9,6 +9,25 @@ naive substring search, for a side-by-side.
 
 ---
 
+## Changes after submission
+
+Everything below describes the submitted work, which lives at `/` and is
+unchanged.
+
+**[`/ai`](https://opentable-discovery.vercel.app/ai)** — a simple
+implementation of an Algolia Agent Studio assistant, added after submitting. It
+is the same page with a chat attached: an "Ask AI" button in the search bar
+opens the agent carrying whatever was searched, and the user's location is
+passed along as context.
+
+It exists to close a gap the submission measures but cannot serve. `romantic
+italian with outdoor seating` returns **0 results** in the keyword index — the
+catalogue records no ambiance or seating attributes — and the same words sent to
+the agent return 7. The agent's own prompt is still close to the Agent Studio
+template; the time went into the integration rather than tuning it.
+
+---
+
 ## The approach
 
 The discovery notes describe two users with opposite needs: one who knows the
