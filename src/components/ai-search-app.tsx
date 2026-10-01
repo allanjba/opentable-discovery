@@ -165,7 +165,7 @@ export function AiSearchApp({
                 <button
                   type="button"
                   onClick={() => chat.current?.sendMessage({ text })}
-                  className="w-full cursor-pointer border border-grey-200 px-3 py-2 text-left text-sm text-ink transition-colors hover:border-brand hover:bg-grey-100"
+                  className="w-full cursor-pointer px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-grey-100"
                 >
                   {text}
                 </button>
@@ -404,7 +404,13 @@ function AskAiButton({
         chatRef.current?.setOpen(true);
         if (query) chatRef.current?.setInput(query);
       }}
-      className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 bg-brand px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-white"
+      /*
+        A gradient rather than a flat fill, because that is the visual language
+        people now read as "this is the AI one" — and brightness, not a second
+        gradient, on hover: background-image does not transition, so swapping
+        the stops would snap rather than ease.
+      */
+      className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 bg-[linear-gradient(115deg,var(--brand-dark)_0%,var(--brand)_55%,var(--ai-glow)_100%)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-white"
       aria-label={query ? `Ask AI about "${query}"` : "Ask AI"}
     >
       <Sparkle />

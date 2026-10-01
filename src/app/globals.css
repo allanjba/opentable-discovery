@@ -13,6 +13,16 @@
   --brand: #2897c5; /* active / selected */
   --accent: #ffab66; /* stars, ratings */
 
+  /*
+   * The far end of the Ask AI gradient, used only on /ai.
+   *
+   * A cyan rather than the violet most assistants reach for: it sits in the
+   * same family as the two brand blues, so the button reads as "something
+   * different" without breaking an identity the rest of the demo keeps
+   * deliberately intact.
+   */
+  --ai-glow: #35c4c4;
+
   --ink: #333333;
   --grey-700: #7f7f7f;
   --grey-500: #a9a9a9;
