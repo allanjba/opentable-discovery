@@ -55,6 +55,31 @@
 }
 
 /*
+ * The Agent Studio chat, retinted to this project's palette.
+ *
+ * instantsearch.css exposes its colours as RGB triplets on :root, so these are
+ * token overrides rather than rules fighting the widget's own styles. The
+ * doubled `:root:root` is deliberate — the stylesheet declares the same
+ * variables at :root, and this project's import order is not guaranteed, so the
+ * extra specificity wins the cascade without reaching for !important.
+ *
+ * The radii go to 0 because nothing else in this interface is rounded: the
+ * cards, the facet rows, the search bar and the buttons are all square, and a
+ * rounded chat panel would read as a third-party widget dropped on top — which
+ * is exactly what it is, and exactly what it should not look like.
+ */
+:root:root {
+  --ais-primary-color-rgb: 40, 151, 197; /* --brand  #2897c5 */
+  --ais-text-color-rgb: 51, 51, 51; /* --ink    #333333 */
+  --ais-muted-color-rgb: 127, 127, 127; /* --grey-700 #7f7f7f */
+  --ais-border-color-rgb: 221, 221, 221; /* --grey-200 #dddddd */
+
+  --ais-border-radius-sm: 0px;
+  --ais-border-radius-md: 0px;
+  --ais-border-radius-lg: 0px;
+}
+
+/*
  * The Ask AI button on /ai.
  *
  * The gradient is palindromic — dark, brand, glow, brand, dark — and twice the
@@ -84,7 +109,8 @@
   background-image: linear-gradient(
     115deg in oklab,
     var(--brand-dark) 0%,
-    var(--ai-glow) 50%,
+    var(--ai-glow) 45%,
+    var(--ai-glow) 55%,
     var(--brand-dark) 100%
   );
   background-size: 200% 100%;
